@@ -20,10 +20,12 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "wacrm",
-    template: "%s — wacrm",
+    default: "Zynex CRM",
+    template: "%s — Zynex CRM",
   },
-  description: "Self-hostable CRM template for WhatsApp.",
+  description:
+    "Zynex CRM — WhatsApp-first customer engagement platform by Zynex SRL. Built on wacrm (MIT, © Arnas Donauskas).",
+  applicationName: "Zynex CRM",
   robots: {
     index: false,
     follow: false,
@@ -39,7 +41,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#020617",
+  themeColor: "#3D5BFF",
   colorScheme: "dark light",
 };
 
@@ -82,7 +84,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="es-DO"
       data-theme={DEFAULT_THEME}
       data-mode={DEFAULT_MODE}
       className={`${inter.variable} h-full antialiased`}

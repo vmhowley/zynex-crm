@@ -1,8 +1,10 @@
-# wacrm — CRM Template for WhatsApp
+# Zynex CRM
 
-> Self-hostable CRM template for WhatsApp® — shared inbox, contacts,
-> sales pipelines, broadcasts, and no-code automations. Fork it, brand
-> it, host it.
+> WhatsApp-first customer engagement platform by **Zynex SRL**. Shared
+> inbox, contacts, sales pipelines, broadcasts, and no-code automations.
+> Built on the [wacrm](https://github.com/ArnasDon/wacrm) template (MIT,
+> © Arnas Donauskas) and integrated with [DigitBill](https://digitbill.do)
+> for Dominican e-CF invoicing.
 
 <p align="center">
   <a href="https://www.hostinger.com/web-apps-hosting">
@@ -11,15 +13,16 @@
 </p>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-violet.svg)](./LICENSE)
-[![CI](https://github.com/ArnasDon/wacrm/actions/workflows/ci.yml/badge.svg)](https://github.com/ArnasDon/wacrm/actions/workflows/ci.yml)
+[![CI](https://github.com/Zynex-SRL/zynex-crm/actions/workflows/ci.yml/badge.svg)](https://github.com/Zynex-SRL/zynex-crm/actions)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs)](https://nextjs.org)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3ecf8e?logo=supabase)](https://supabase.com)
-[![Stars](https://img.shields.io/github/stars/ArnasDon/wacrm?style=social)](https://github.com/ArnasDon/wacrm/stargazers)
+[![Built on wacrm](https://img.shields.io/badge/built%20on-wacrm-7c3aed)](https://github.com/ArnasDon/wacrm)
 
-The marketing site and self-host docs live in a separate repo:
-[ArnasDon/wacrm-site](https://github.com/ArnasDon/wacrm-site)
-([wacrm.tech](https://wacrm.tech)). This repo is the product —
-clone or fork it to run your own CRM.
+This repo is the product — fork or clone it to run your own Zynex CRM
+deployment. The upstream wacrm template lives at
+[ArnasDon/wacrm](https://github.com/ArnasDon/wacrm); we sync from it
+periodically and ship Zynex-specific changes (branding, DigitBill bridge,
+Spanish-first copy) on top.
 
 ## What you get out of the box
 

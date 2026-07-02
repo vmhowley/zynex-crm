@@ -1,13 +1,47 @@
 # Changelog
 
-User-visible changes in `wacrm`. Self-hosters: when pulling an update,
+User-visible changes in Zynex CRM. Self-hosters: when pulling an update,
 check this file for any **migration required** notes and apply the
 matching SQL files from `supabase/migrations/` against your Supabase
 project before restarting the app.
 
+Zynex CRM is built on the [wacrm](https://github.com/ArnasDon/wacrm)
+template (MIT, © Arnas Donauskas). Upstream releases are merged in
+periodically and rebased onto our branding and integration changes.
+
 Versions follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Pre-1.0, `MINOR` bumps cover new modules; `PATCH` bumps cover bug fixes
 and polish.
+
+## [1.0.0] — Zynex rebrand
+
+First release under the Zynex brand. Identical upstream code with
+Nexus Computing Solutions SRL's branding, Spanish-first copy, and the
+Zynex indigo accent theme.
+
+### Changed
+
+- **Brand identity.** Renamed to **Zynex CRM** by Zynex SRL (Nexus
+  Computing Solutions SRL). New indigo accent (`oklch(0.52 0.24 258)`)
+  is the default theme; `violet`, `emerald`, `cobalt`, `amber`, and
+  `rose` remain selectable in Settings → Appearance.
+- **Locale.** Default `<html lang>` is now `es-DO`. All user-visible
+  auth strings (login, signup, password reset) are in Spanish; English
+  copy still ships as the fallback.
+- **Theme storage keys.** `wacrm.theme` / `wacrm.mode` renamed to
+  `zynex.theme` / `zynex.mode`. Existing users keep their saved
+  preference on first visit (the boot script falls back to the
+  in-code default).
+- **Sidebar logo glyph.** Chat-square replaced with a stylized "Z".
+- **Metadata.** `<title>` template is now `%s — Zynex CRM`. Favicon
+  redrawn to the Zynex indigo square.
+
+### Unchanged (by design)
+
+- MIT license and Arnas Donauskas attribution in `LICENSE` / `README`.
+- All Supabase migrations (still MIT-licensed upstream code).
+- Public API at `/api/v1/*` — endpoints, scopes, and HMAC webhook
+  signing scheme are unchanged.
 
 ## [0.5.0] — 2026-07-02
 

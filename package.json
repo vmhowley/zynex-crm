@@ -1,17 +1,17 @@
 {
-  "name": "wacrm",
-  "version": "0.5.0",
+  "name": "zynex-crm",
+  "version": "1.0.0",
   "private": true,
-  "description": "Self-hostable CRM template for WhatsApp built on Next.js and Supabase — shared inbox, contacts, sales pipelines, broadcasts, and no-code automations.",
+  "description": "Zynex CRM — WhatsApp-first customer engagement platform by Zynex SRL. Shared inbox, contacts, sales pipelines, broadcasts, and no-code automations. Built on wacrm (MIT, © Arnas Donauskas).",
   "license": "MIT",
-  "author": "Arnas Donauskas",
-  "homepage": "https://github.com/ArnasDon/wacrm",
+  "author": "Zynex SRL (Nexus Computing Solutions SRL)",
+  "homepage": "https://crm.zynex.do",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ArnasDon/wacrm.git"
+    "url": "git+https://github.com/Zynex-SRL/zynex-crm.git"
   },
   "bugs": {
-    "url": "https://github.com/ArnasDon/wacrm/issues"
+    "url": "https://github.com/Zynex-SRL/zynex-crm/issues"
   },
   "keywords": [
     "crm",
@@ -22,7 +22,13 @@
     "automation",
     "broadcast",
     "self-hosted",
-    "template"
+    "zynex",
+    "zynex-crm",
+    "digitbill",
+    "ecf",
+    "dgii",
+    "dominican-republic",
+    "latam"
   ],
   "engines": {
     "node": ">=20.0.0"
