@@ -15,9 +15,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { MessageSquare, CheckCircle, UsersRound } from "lucide-react";
+import { useTranslations } from "@/hooks/use-translations";
 
-// `useSearchParams` opts the component out of static prerendering
-// unless wrapped in Suspense — same pattern as /login.
 export default function SignupPage() {
   return (
     <Suspense fallback={null}>
@@ -28,12 +27,9 @@ export default function SignupPage() {
 
 function SignupPageInner() {
   const searchParams = useSearchParams();
-  // When the user lands here from `/join/<token>` we carry the
-  // invite token in the query so it survives the signup → email
-  // verification → redirect round-trip. `emailRedirectTo` below
-  // points back at /join/<token> so the user lands on the redeem
-  // step after verifying instead of being dropped on /dashboard.
   const inviteToken = searchParams.get("invite");
+  const { t } = useTranslations();
+  const isEn = t("auth.login") !== "Iniciar Sesión";
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -49,21 +45,17 @@ function SignupPageInner() {
     setError(null);
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError(isEn ? "Passwords do not match" : "Las contraseñas no coinciden");
       return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+      setError(isEn ? "Password must be at least 6 characters" : "La contraseña debe tener al menos 6 caracteres");
       return;
     }
 
     setLoading(true);
 
-    // If we have an invite token, point Supabase's verification
-    // email back at the join page so the user can accept after
-    // verifying. Without a token, Supabase uses its default
-    // redirect (the app root).
     const emailRedirectTo = inviteToken
       ? `${window.location.origin}/join/${encodeURIComponent(inviteToken)}`
       : undefined;
@@ -97,14 +89,14 @@ function SignupPageInner() {
             <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
               <CheckCircle className="h-6 w-6 text-primary" />
             </div>
-<CardTitle className="text-xl text-foreground">
-            Revisa tu correo
-          </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            Te enviamos un enlace de confirmación a{" "}
-            <span className="text-foreground">{email}</span>. Revisa tu bandeja
-            de entrada y haz clic en el enlace para verificar tu cuenta.
-          </CardDescription>
+            <CardTitle className="text-xl text-foreground">
+              {isEn ? "Check your email" : "Revisa tu correo"}
+            </CardTitle>
+            <CardDescription className="text-muted-foreground">
+              {isEn 
+                ? `We sent a confirmation link to ${email}. Check your inbox and click the link to verify your account.`
+                : `Te enviamos un enlace de confirmación a ${email}. Revisa tu bandeja de entrada y haz clic en el enlace para verificar tu cuenta.`}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Link
@@ -118,7 +110,7 @@ function SignupPageInner() {
                 variant="outline"
                 className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
               >
-                Volver a iniciar sesión
+                {isEn ? "Back to sign in" : "Volver a iniciar sesión"}
               </Button>
             </Link>
           </CardContent>
@@ -139,12 +131,14 @@ function SignupPageInner() {
             )}
           </div>
           <CardTitle className="text-xl text-foreground">
-            {inviteToken ? "Crear cuenta y unirse" : "Crear cuenta"}
+            {inviteToken 
+              ? (isEn ? "Create account and join" : "Crear cuenta y unirse") 
+              : (isEn ? "Create account" : "Crear cuenta")}
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             {inviteToken
-              ? "Verifica tu correo y acepta la invitación para unirte a tu equipo."
-              : "Comienza con Zynex CRM"}
+              ? (isEn ? "Verify your email and accept the invitation to join your team." : "Verifica tu correo y acepta la invitación para unirte a tu equipo.")
+              : (isEn ? "Get started with Zynex CRM" : "Comienza con Zynex CRM")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -157,7 +151,7 @@ function SignupPageInner() {
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="fullName" className="text-muted-foreground">
-                Nombre completo
+                {t("settings.fullName")}
               </Label>
               <Input
                 id="fullName"
@@ -172,7 +166,7 @@ function SignupPageInner() {
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="email" className="text-muted-foreground">
-                Correo electrónico
+                {t("auth.email")}
               </Label>
               <Input
                 id="email"
@@ -187,12 +181,12 @@ function SignupPageInner() {
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="password" className="text-muted-foreground">
-                Contraseña
+                {t("auth.password")}
               </Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="Al menos 6 caracteres"
+                placeholder={isEn ? "At least 6 characters" : "Al menos 6 caracteres"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -202,12 +196,12 @@ function SignupPageInner() {
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="confirmPassword" className="text-muted-foreground">
-                Confirmar contraseña
+                {t("auth.confirmPassword")}
               </Label>
               <Input
                 id="confirmPassword"
                 type="password"
-                placeholder="Repite tu contraseña"
+                placeholder={isEn ? "Repeat your password" : "Repite tu contraseña"}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
@@ -220,12 +214,12 @@ function SignupPageInner() {
               disabled={loading}
               className="mt-2 h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
-              {loading ? "Creando cuenta..." : "Crear cuenta"}
+              {loading ? (isEn ? "Creating account..." : "Creando cuenta...") : t("auth.createAccount")}
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            ¿Ya tienes cuenta?{" "}
+            {t("auth.haveAccount")}{" "}
             <Link
               href={
                 inviteToken
@@ -234,7 +228,7 @@ function SignupPageInner() {
               }
               className="text-primary hover:text-primary/80"
             >
-              Iniciar sesión
+              {t("auth.signIn")}
             </Link>
           </p>
         </CardContent>

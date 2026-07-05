@@ -219,17 +219,21 @@ export async function sendMessageToConversation(
     );
   }
 
-  // WhatsApp config, account-scoped.
+  // Get channel from conversation
+  const channel = (conversation as any).channel || 'whatsapp';
+
+  // Channel config, account-scoped. Uses channel_configs table.
   const { data: config, error: configError } = await db
-    .from('whatsapp_config')
+    .from('channel_configs')
     .select('*')
     .eq('account_id', accountId)
+    .eq('channel', channel)
     .single();
 
   if (configError || !config) {
     throw new SendMessageError(
-      'whatsapp_not_configured',
-      'WhatsApp not configured. Please set up your WhatsApp integration first.',
+      'channel_not_configured',
+      `${channel.charAt(0).toUpperCase() + channel.slice(1)} not configured. Please set up your ${channel} integration first.`,
       400
     );
   }
@@ -239,7 +243,7 @@ export async function sendMessageToConversation(
   // Self-heal legacy CBC ciphertexts. Fire-and-forget; idempotent.
   if (isLegacyFormat(config.access_token)) {
     void db
-      .from('whatsapp_config')
+      .from('channel_configs')
       .update({ access_token: encrypt(accessToken) })
       .eq('id', config.id)
       .then(({ error }: { error: { message: string } | null }) => {
@@ -304,7 +308,7 @@ export async function sendMessageToConversation(
   const attempt = async (phone: string): Promise<string> => {
     if (messageType === 'template') {
       const result = await sendTemplateMessage({
-        phoneNumberId: config.phone_number_id,
+        phoneNumberId: config.channel_id,
         accessToken,
         to: phone,
         templateName: templateName!,
@@ -318,7 +322,7 @@ export async function sendMessageToConversation(
     }
     if (isMediaKind) {
       const result = await sendMediaMessage({
-        phoneNumberId: config.phone_number_id,
+        phoneNumberId: config.channel_id,
         accessToken,
         to: phone,
         kind: messageType as MediaKind,
@@ -330,7 +334,7 @@ export async function sendMessageToConversation(
       return result.messageId;
     }
     const result = await sendTextMessage({
-      phoneNumberId: config.phone_number_id,
+      phoneNumberId: config.channel_id,
       accessToken,
       to: phone,
       text: contentText!,
@@ -398,6 +402,8 @@ export async function sendMessageToConversation(
       message_id: waMessageId,
       status: 'sent',
       reply_to_message_id: replyToMessageId || null,
+      // Channel - added in migration 032
+      channel: channel,
     })
     .select()
     .single();

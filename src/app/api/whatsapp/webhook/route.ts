@@ -13,6 +13,7 @@ import {
   handleTemplateWebhookChange,
   isTemplateWebhookField,
 } from '@/lib/whatsapp/template-webhook'
+import { getChannelConfigByChannelId } from '@/lib/channels'
 
 // The `after()` callback in POST runs within this route's max duration.
 // Inbound processing can fan out to per-media Meta verification calls, so
@@ -69,6 +70,7 @@ interface WhatsAppWebhookEntry {
       metadata: {
         display_phone_number: string
         phone_number_id: string
+        page_id?: string
       }
       contacts?: Array<{
         profile: { name: string }
@@ -245,44 +247,44 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
       // Handle incoming messages
       if (!value.messages || !value.contacts) continue
 
-      const phoneNumberId = value.metadata.phone_number_id
+      const channelId = value.metadata.phone_number_id || value.metadata.page_id
 
-      // Find user's config by phone_number_id. `.single()` returns
-      // PGRST116 for both 0 rows AND ≥2 rows — distinguish them so
-      // operators see the real cause in logs. ≥2 rows shouldn't happen
-      // post-migration 013 (UNIQUE constraint), but a row created
-      // before the constraint, or a race, would still surface here.
+      // Find user's config by channel_id (phone_number_id for WhatsApp, page_id for IG/FB).
+      // Uses channel_configs table (migrated from whatsapp_config).
       const { data: configRows, error: configError } = await supabaseAdmin()
-        .from('whatsapp_config')
+        .from('channel_configs')
         .select('*')
-        .eq('phone_number_id', phoneNumberId)
+        .eq('channel_id', channelId)
 
       if (configError) {
         console.error(
-          'Error fetching whatsapp_config for phone_number_id:',
-          phoneNumberId,
+          'Error fetching channel_config for channel_id:',
+          channelId,
           configError
         )
         continue
       }
 
       if (!configRows || configRows.length === 0) {
-        console.error('No config found for phone_number_id:', phoneNumberId)
+        console.error('No config found for channel_id:', channelId)
         continue
       }
 
       if (configRows.length > 1) {
         console.error(
-          `Multiple configs (${configRows.length}) found for phone_number_id:`,
-          phoneNumberId,
-          '— inbound message dropped. Resolve duplicates so each number maps to a single account.',
+          `Multiple configs (${configRows.length}) found for channel_id:`,
+          channelId,
+          '— inbound message dropped. Resolve duplicates so each channel maps to a single account.',
           'Account owners:',
-          configRows.map((r: { account_id: string; user_id: string }) => `${r.account_id} (admin ${r.user_id})`)
+          configRows.map((r: { account_id: string; user_id: string; channel: string }) => 
+            `${r.account_id} (${r.channel} admin ${r.user_id})`
+          )
         )
         continue
       }
 
       const config = configRows[0]
+      const channel = config.channel || 'whatsapp' // Default to whatsapp for backward compat
 
       const decryptedAccessToken = decrypt(config.access_token)
 
@@ -298,9 +300,10 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
           config.account_id,
           // Audit / sender-of-record — used as the user_id on row
           // inserts that need it for NOT NULL FK compliance. Always
-          // the admin who saved the WhatsApp config.
+          // the admin who saved the channel config.
           config.user_id,
-          decryptedAccessToken
+          decryptedAccessToken,
+          channel
         )
       }
     }
@@ -560,15 +563,17 @@ async function handleReaction(
 async function processMessage(
   message: WhatsAppMessage,
   contact: { profile: { name: string }; wa_id: string },
-  // Tenancy. Resolved from the matched whatsapp_config row; every
+  // Tenancy. Resolved from the matched channel_config row; every
   // contact / conversation / message row created downstream is
   // stamped with this so any member of the account can see it.
   accountId: string,
   // Sender-of-record for inserts that need a NOT NULL user_id FK
   // (contacts, conversations). Always the admin who saved the
-  // WhatsApp config; the choice is arbitrary post-017 but stable.
+  // channel config; the choice is arbitrary post-017 but stable.
   configOwnerUserId: string,
-  accessToken: string
+  accessToken: string,
+  // Channel type: whatsapp, instagram, or messenger
+  channel: string = 'whatsapp'
 ) {
   const senderPhone = normalizePhone(message.from)
   const contactName = contact.profile.name
@@ -587,7 +592,8 @@ async function processMessage(
   const convResult = await findOrCreateConversation(
     accountId,
     configOwnerUserId,
-    contactRecord.id
+    contactRecord.id,
+    channel
   )
   if (!convResult) return
   const conversation = convResult.conversation
@@ -680,6 +686,8 @@ async function processMessage(
     // the column; null for every other content_type so existing inserts
     // behave identically.
     interactive_reply_id: interactiveReplyId,
+    // Channel type - added in migration 032
+    channel: channel,
   })
 
   if (msgError) {
@@ -1034,13 +1042,15 @@ async function findOrCreateConversation(
   accountId: string,
   configOwnerUserId: string,
   contactId: string,
+  channel: string = 'whatsapp',
 ) {
-  // Look for existing conversation in this account
+  // Look for existing conversation in this account, scoped by channel
   const { data: existing, error: findError } = await supabaseAdmin()
     .from('conversations')
     .select('*')
     .eq('account_id', accountId)
     .eq('contact_id', contactId)
+    .eq('channel', channel)
     .single()
 
   if (!findError && existing) {
@@ -1055,6 +1065,7 @@ async function findOrCreateConversation(
       account_id: accountId,
       user_id: configOwnerUserId,
       contact_id: contactId,
+      channel: channel,
     })
     .select()
     .single()

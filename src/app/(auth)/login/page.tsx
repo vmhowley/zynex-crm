@@ -15,12 +15,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { MessageSquare, UsersRound } from "lucide-react";
+import { useTranslations } from "@/hooks/use-translations";
 
-// `useSearchParams` opts the component out of static prerendering
-// unless it sits under a Suspense boundary. We split the form into
-// a child component so the outer page can prerender the chrome
-// (background, card frame) while the form hydrates with the query
-// string on the client.
 export default function LoginPage() {
   return (
     <Suspense fallback={null}>
@@ -31,10 +27,9 @@ export default function LoginPage() {
 
 function LoginPageInner() {
   const searchParams = useSearchParams();
-  // Forwarded from `/join/<token>` when the visitor already has an
-  // account. After a successful sign-in we send them to the join
-  // page to accept rather than to /dashboard.
   const inviteToken = searchParams.get("invite");
+  const { t } = useTranslations();
+  const isEn = t("auth.login") !== "Iniciar Sesión";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -78,12 +73,14 @@ function LoginPageInner() {
             )}
           </div>
           <CardTitle className="text-xl text-foreground">
-            {inviteToken ? "Inicia sesión para aceptar" : "Bienvenido de vuelta"}
+            {inviteToken 
+              ? (isEn ? "Sign in to accept" : "Inicia sesión para aceptar") 
+              : (isEn ? "Welcome back" : "Bienvenido de vuelta")}
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             {inviteToken
-              ? "Inicia sesión y te llevaremos a la invitación."
-              : "Inicia sesión en Zynex CRM"}
+              ? (isEn ? "Sign in and we'll take you to the invitation." : "Inicia sesión y te llevaremos a la invitación.")
+              : (isEn ? "Sign in to Zynex CRM" : "Inicia sesión en Zynex CRM")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -96,7 +93,7 @@ function LoginPageInner() {
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="email" className="text-muted-foreground">
-                Correo electrónico
+                {t("auth.email")}
               </Label>
               <Input
                 id="email"
@@ -112,19 +109,19 @@ function LoginPageInner() {
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password" className="text-muted-foreground">
-                  Contraseña
+                  {t("auth.password")}
                 </Label>
                 <Link
                   href="/forgot-password"
                   className="text-sm text-primary hover:text-primary/80"
                 >
-                  ¿Olvidaste tu contraseña?
+                  {t("auth.forgotPassword")}
                 </Link>
               </div>
               <Input
                 id="password"
                 type="password"
-                placeholder="Ingresa tu contraseña"
+                placeholder={isEn ? "Enter your password" : "Ingresa tu contraseña"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -137,12 +134,12 @@ function LoginPageInner() {
               disabled={loading}
               className="mt-2 h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
-              {loading ? "Iniciando sesión..." : "Iniciar sesión"}
+              {loading ? (isEn ? "Signing in..." : "Iniciando sesión...") : t("auth.login")}
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            ¿No tienes cuenta?{" "}
+            {t("auth.noAccount")}{" "}
             <Link
               href={
                 inviteToken
@@ -151,7 +148,7 @@ function LoginPageInner() {
               }
               className="text-primary hover:text-primary/80"
             >
-              Crear cuenta
+              {t("auth.signUp")}
             </Link>
           </p>
         </CardContent>

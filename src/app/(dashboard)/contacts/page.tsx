@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
+import { useTranslations } from '@/hooks/use-translations';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -64,6 +65,9 @@ interface ContactWithTags extends Contact {
 }
 
 export default function ContactsPage() {
+  const { t } = useTranslations();
+  const isEn = t("auth.login") !== "Iniciar Sesión";
+  
   const supabase = createClient();
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
@@ -342,9 +346,11 @@ export default function ContactsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Contacts</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t("contacts.title")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage your contact list. {totalCount > 0 && `${totalCount} total contacts.`}
+            {isEn 
+              ? `Manage your contact list. ${totalCount > 0 ? `${totalCount} total contacts.` : ''}`
+              : `Gestiona tu lista de contactos. ${totalCount > 0 ? `${totalCount} contactos en total.` : ''}`}
           </p>
         </div>
         <div className="flex items-center gap-2">

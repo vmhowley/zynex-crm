@@ -10,6 +10,7 @@ import { useUnreadNotifications } from "@/hooks/use-unread-notifications";
 import {
   Bell,
   Crown,
+  CreditCard,
   GitBranch,
   LayoutDashboard,
   LogOut,
@@ -101,6 +102,7 @@ const navItems: NavItem[] = [
 
 const bottomNavItems = [
   { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/admin/payments", label: "Pagos", icon: CreditCard, adminOnly: true },
 ];
 
 interface SidebarProps {
@@ -266,7 +268,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           <div className="my-4 border-t border-border" />
 
           <ul className="flex flex-col gap-1">
-            {bottomNavItems.map((item) => {
+            {bottomNavItems
+              .filter((item) => !item.adminOnly || accountRole === "owner")
+              .map((item) => {
               const isActive = pathname.startsWith(item.href);
               return (
                 <li key={item.href}>

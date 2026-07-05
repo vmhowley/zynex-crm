@@ -6,13 +6,14 @@ import { ChevronRight, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
+import { useTranslations } from '@/hooks/use-translations';
 import { THEMES } from '@/lib/themes';
 import { CURRENCIES } from '@/lib/currency';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-import { SECTION_META, type SettingsSection } from './settings-sections';
+import { getSectionMeta, type SettingsSection } from './settings-sections';
 import { SettingsChip, StatusDot } from './settings-chip';
 import { ROLE_META } from './role-meta';
 
@@ -38,6 +39,9 @@ export function SettingsOverview({
   const { user, profile, accountId, accountRole, defaultCurrency, canManageMembers } =
     useAuth();
   const { mode, theme } = useTheme();
+  const { locale, t } = useTranslations();
+  const isEn = locale === 'en';
+  const SECTION_META = getSectionMeta(locale);
 
   const [counts, setCounts] = useState<OverviewCounts | null>(null);
   const [countsLoading, setCountsLoading] = useState(true);
@@ -158,14 +162,14 @@ export function SettingsOverview({
       section: 'whatsapp',
       loading: whatsappLoading,
       subtitle: !whatsapp?.configured ? (
-        'Not set up yet'
+        isEn ? 'Not set up yet' : 'No configurado'
       ) : whatsapp.connected ? (
         <>
-          <StatusDot tone="ok" /> Connected
+          <StatusDot tone="ok" /> {isEn ? 'Connected' : 'Conectado'}
         </>
       ) : (
         <>
-          <StatusDot tone="muted" /> Needs reconnecting
+          <StatusDot tone="muted" /> {isEn ? 'Needs reconnecting' : 'Necesita reconectar'}
         </>
       ),
     },
@@ -174,12 +178,10 @@ export function SettingsOverview({
       loading: countsLoading,
       subtitle:
         counts?.members == null
-          ? 'View team members'
-          : `${counts.members} member${counts.members === 1 ? '' : 's'}${
+          ? (isEn ? 'View team members' : 'Ver miembros del equipo')
+          : `${counts.members} ${isEn ? 'member' : 'miembro'}${counts.members === 1 ? '' : 's'}${
               counts.pendingInvites
-                ? ` · ${counts.pendingInvites} pending invite${
-                    counts.pendingInvites === 1 ? '' : 's'
-                  }`
+                ? ` · ${counts.pendingInvites} ${isEn ? 'pending' : 'pendiente'} ${isEn ? 'invite' : 'invitación'}`
                 : ''
             }`,
     },
@@ -188,10 +190,10 @@ export function SettingsOverview({
       loading: countsLoading,
       subtitle:
         counts?.templates == null
-          ? 'Manage message templates'
-          : `${counts.templates} template${counts.templates === 1 ? '' : 's'}${
+          ? (isEn ? 'Manage message templates' : 'Gestionar plantillas')
+          : `${counts.templates} ${isEn ? 'template' : 'plantilla'}${counts.templates === 1 ? '' : 's'}${
               counts.templatesPending
-                ? ` · ${counts.templatesPending} pending review`
+                ? ` · ${counts.templatesPending} ${isEn ? 'pending review' : 'pendiente de revisión'}`
                 : ''
             }`,
     },
@@ -205,15 +207,15 @@ export function SettingsOverview({
       loading: countsLoading,
       subtitle:
         counts?.tags == null && counts?.customFields == null
-          ? 'Tags and custom fields'
-          : `${counts?.tags ?? 0} tag${counts?.tags === 1 ? '' : 's'} · ${
+          ? (isEn ? 'Tags and custom fields' : 'Etiquetas y campos personalizados')
+          : `${counts?.tags ?? 0} ${isEn ? 'tag' : 'etiqueta'}${counts?.tags === 1 ? '' : 's'} · ${
               counts?.customFields ?? 0
-            } custom field${counts?.customFields === 1 ? '' : 's'}`,
+            } ${isEn ? 'custom field' : 'campo personalizado'}`,
     },
     {
       section: 'appearance',
       loading: false,
-      subtitle: `${cap(mode)} mode · ${themeName} accent`,
+      subtitle: `${cap(mode)} ${isEn ? 'mode' : 'modo'} · ${themeName}`,
     },
   ];
 
@@ -272,7 +274,7 @@ export function SettingsOverview({
                 <span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                   {loading ? (
                     <>
-                      <Loader2 className="size-3 animate-spin" /> Loading…
+                      <Loader2 className="size-3 animate-spin" /> {isEn ? 'Loading...' : 'Cargando...'}
                     </>
                   ) : (
                     subtitle

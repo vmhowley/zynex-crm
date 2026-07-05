@@ -14,8 +14,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { MessageSquare, CheckCircle, ArrowLeft } from "lucide-react";
+import { useTranslations } from "@/hooks/use-translations";
 
 export default function ForgotPasswordPage() {
+  const { t } = useTranslations();
+  const isEn = t("auth.login") !== "Iniciar Sesión";
+  
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -49,14 +53,14 @@ export default function ForgotPasswordPage() {
             <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
               <CheckCircle className="h-6 w-6 text-primary" />
             </div>
-<CardTitle className="text-xl text-foreground">
-            Revisa tu correo
-          </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            Te enviamos un enlace de recuperación a{" "}
-            <span className="text-foreground">{email}</span>. Revisa tu bandeja
-            de entrada.
-          </CardDescription>
+            <CardTitle className="text-xl text-foreground">
+              {isEn ? "Check your email" : "Revisa tu correo"}
+            </CardTitle>
+            <CardDescription className="text-muted-foreground">
+              {isEn 
+                ? `We sent a recovery link to ${email}. Check your inbox.`
+                : `Te enviamos un enlace de recuperación a ${email}. Revisa tu bandeja de entrada.`}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/login">
@@ -64,7 +68,7 @@ export default function ForgotPasswordPage() {
                 variant="outline"
                 className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
               >
-                Volver a iniciar sesión
+                {isEn ? "Back to sign in" : "Volver a iniciar sesión"}
               </Button>
             </Link>
           </CardContent>
@@ -80,9 +84,13 @@ export default function ForgotPasswordPage() {
           <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
             <MessageSquare className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-xl text-foreground">Restablecer contraseña</CardTitle>
+          <CardTitle className="text-xl text-foreground">
+            {isEn ? "Reset password" : "Restablecer contraseña"}
+          </CardTitle>
           <CardDescription className="text-muted-foreground">
-            Ingresa tu correo y te enviaremos un enlace para restablecerla
+            {isEn 
+              ? "Enter your email and we'll send you a link to reset it"
+              : "Ingresa tu correo y te enviaremos un enlace para restablecerla"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -95,7 +103,7 @@ export default function ForgotPasswordPage() {
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="email" className="text-muted-foreground">
-                Correo electrónico
+                {t("auth.email")}
               </Label>
               <Input
                 id="email"
@@ -113,7 +121,7 @@ export default function ForgotPasswordPage() {
               disabled={loading}
               className="mt-2 h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
-              {loading ? "Enviando..." : "Enviar enlace"}
+              {loading ? (isEn ? "Sending..." : "Enviando...") : (isEn ? "Send link" : "Enviar enlace")}
             </Button>
           </form>
 
@@ -122,7 +130,7 @@ export default function ForgotPasswordPage() {
             className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
-            Volver a iniciar sesión
+            {isEn ? "Back to sign in" : "Volver a iniciar sesión"}
           </Link>
         </CardContent>
       </Card>

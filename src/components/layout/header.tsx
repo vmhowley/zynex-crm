@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import { useTranslations } from "@/hooks/use-translations";
 import { LogOut, Menu, Settings as SettingsIcon, User } from "lucide-react";
 import {
   Avatar,
@@ -17,25 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ModeToggle } from "@/components/layout/mode-toggle";
-
-const pageTitles: Record<string, string> = {
-  "/dashboard": "Dashboard",
-  "/inbox": "Inbox",
-  "/notifications": "Notifications",
-  "/contacts": "Contacts",
-  "/pipelines": "Pipelines",
-  "/broadcasts": "Broadcasts",
-  "/automations": "Automations",
-  "/settings": "Settings",
-};
-
-function getPageTitle(pathname: string): string {
-  if (pageTitles[pathname]) return pageTitles[pathname];
-  const match = Object.entries(pageTitles).find(([path]) =>
-    pathname.startsWith(path),
-  );
-  return match ? match[1] : "Dashboard";
-}
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 interface HeaderProps {
   /** Wired to the shell's drawer state. Used only on mobile — the
@@ -46,6 +29,39 @@ interface HeaderProps {
 export function Header({ onOpenSidebar }: HeaderProps) {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
+  const { t } = useTranslations();
+  const isEn = t("auth.login") !== "Iniciar Sesión";
+  
+  const pageTitles: Record<string, string> = isEn ? {
+    "/dashboard": "Dashboard",
+    "/inbox": "Inbox",
+    "/notifications": "Notifications",
+    "/contacts": "Contacts",
+    "/pipelines": "Pipelines",
+    "/broadcasts": "Broadcasts",
+    "/automations": "Automations",
+    "/flows": "Flows",
+    "/settings": "Settings",
+  } : {
+    "/dashboard": "Panel",
+    "/inbox": "Bandeja de Entrada",
+    "/notifications": "Notificaciones",
+    "/contacts": "Contactos",
+    "/pipelines": "Pipelines",
+    "/broadcasts": "Broadcasts",
+    "/automations": "Automatizaciones",
+    "/flows": "Flujos",
+    "/settings": "Configuración",
+  };
+
+  function getPageTitle(path: string): string {
+    if (pageTitles[path]) return pageTitles[path];
+    const match = Object.entries(pageTitles).find(([p]) =>
+      path.startsWith(p),
+    );
+    return match ? match[1] : (isEn ? "Dashboard" : "Panel");
+  }
+
   const title = getPageTitle(pathname);
 
   const initial =
@@ -71,6 +87,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2">
+        <LanguageSwitcher />
         <ModeToggle />
 
         <DropdownMenu>
@@ -116,7 +133,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             }
           >
             <User className="size-4" />
-            Profile
+            {t("nav.profile")}
           </DropdownMenuItem>
           <DropdownMenuItem
             render={
@@ -127,7 +144,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             }
           >
             <SettingsIcon className="size-4" />
-            Settings
+            {t("nav.settings")}
           </DropdownMenuItem>
           <DropdownMenuSeparator className="bg-border" />
           <DropdownMenuItem
@@ -135,7 +152,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
           >
             <LogOut className="size-4" />
-            Sign out
+            {t("nav.logout")}
           </DropdownMenuItem>
         </DropdownMenuContent>
         </DropdownMenu>
