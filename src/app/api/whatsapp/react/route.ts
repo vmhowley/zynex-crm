@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { sendReactionMessage } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';
-import { sanitizePhoneForMeta } from '@/lib/whatsapp/phone-utils';
+import { getRecipientFromContact } from '@/lib/contacts/recipient';
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
 
     const { data: conversation, error: convError } = await supabase
       .from('conversations')
-      .select('id, account_id, contact:contacts(phone)')
+      .select('id, account_id, channel, contact:contacts(phone, recipient_id)')
       .eq('id', targetMessage.conversation_id)
       .eq('account_id', accountId)
       .maybeSingle();
@@ -98,21 +98,40 @@ export async function POST(request: Request) {
       );
     }
 
+    if ((conversation as { channel?: string }).channel !== 'whatsapp') {
+      // Reactions are a WhatsApp-only Meta feature. IG/Messenger threads
+      // surface their equivalents through the channel's native UX; the
+      // dashboard's reaction button is hidden there, so a 422 here means
+      // a stale UI or a hand-crafted request.
+      return NextResponse.json(
+        {
+          error:
+            'Reactions are only supported on WhatsApp conversations.',
+          code: 'unsupported_channel_op',
+        },
+        { status: 422 },
+      );
+    }
+
     const contact = Array.isArray(conversation.contact)
       ? conversation.contact[0]
       : conversation.contact;
-    if (!contact?.phone) {
+    let sanitizedPhone: string
+    try {
+      sanitizedPhone = getRecipientFromContact(contact)
+    } catch {
       return NextResponse.json(
-        { error: 'Contact phone number not found' },
+        { error: 'Contact has neither phone nor recipient_id' },
         { status: 400 },
-      );
+      )
     }
 
     // WhatsApp config + access token. Account-scoped post-multi-user.
     const { data: config, error: configError } = await supabase
-      .from('whatsapp_config')
-      .select('phone_number_id, access_token')
+      .from('channel_configs')
+      .select('channel_id, access_token')
       .eq('account_id', accountId)
+      .eq('channel', 'whatsapp')
       .single();
 
     if (configError || !config) {
@@ -123,11 +142,11 @@ export async function POST(request: Request) {
     }
 
     const accessToken = decrypt(config.access_token);
-    const sanitizedPhone = sanitizePhoneForMeta(contact.phone);
 
     try {
       await sendReactionMessage({
-        phoneNumberId: config.phone_number_id,
+        channelId: config.channel_id,
+        messagingProduct: 'whatsapp',
         accessToken,
         to: sanitizedPhone,
         targetMessageId: targetMessage.message_id,

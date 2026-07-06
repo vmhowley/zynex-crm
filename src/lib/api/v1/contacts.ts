@@ -11,7 +11,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
 import { resolveImportTagIds } from '@/lib/contacts/resolve-import-tags';
-import { sanitizePhoneForMeta, isValidE164 } from '@/lib/whatsapp/phone-utils';
+import { isValidE164 } from '@/lib/whatsapp/phone-utils';
 
 /** Row select that embeds the contact's tags for serialization. */
 export const CONTACT_SELECT = '*, contact_tags(tags(*))';
@@ -74,9 +74,10 @@ export async function resolveAuditUserId(
   accountId: string
 ): Promise<string> {
   const { data: config } = await db
-    .from('whatsapp_config')
+    .from('channel_configs')
     .select('user_id')
     .eq('account_id', accountId)
+    .eq('channel', 'whatsapp')
     .maybeSingle();
   const configOwner = config?.user_id as string | undefined;
   if (configOwner) return configOwner;
@@ -94,17 +95,22 @@ export async function resolveAuditUserId(
 }
 
 export interface ContactInput {
-  phone: string;
+  phone?: string | null;
+  recipient_id?: string | null;
   name?: string | null;
   email?: string | null;
   company?: string | null;
 }
 
 /**
- * Find (by fuzzy phone match) or create a contact in `accountId`.
- * Returns the contact id and whether it was created. Reuses the shared
- * `findExistingContact` dedupe + unique-violation race backstop so an
- * API-created contact is indistinguishable from a webhook-created one.
+ * Find (by phone or recipient_id) or create a contact in `accountId`.
+ * Returns the contact id and whether it was created.
+ *
+ * - When `phone` is provided, uses the shared `findExistingContact`
+ *   dedupe (fuzzy phone match) + unique-violation race backstop.
+ * - When `recipient_id` is provided (IG/FB), does an exact match on
+ *   (account_id, recipient_id). Both fields can be set; phone wins
+ *   when both are present for lookup purposes.
  */
 export async function findOrCreateContact(
   db: SupabaseClient,
@@ -112,15 +118,64 @@ export async function findOrCreateContact(
   auditUserId: string,
   input: ContactInput
 ): Promise<{ id: string; created: boolean }> {
-  const sanitized = sanitizePhoneForMeta(input.phone);
-  if (!isValidE164(sanitized)) {
-    throw new ContactError(
-      "'phone' must be a valid phone number in E.164 format (e.g. +14155550123)",
-      400
-    );
+  const phone = input.phone?.trim() ?? ''
+  const recipientId = input.recipient_id?.trim() ?? ''
+
+  if (!phone && !recipientId) {
+    throw new ContactError("'phone' or 'recipient_id' is required", 400);
   }
 
-  const existing = await findExistingContact(db, accountId, sanitized);
+  // Look up by phone when available (WhatsApp path)
+  if (phone) {
+    const digitsOnly = phone.replace(/\D/g, '')
+    if (!isValidE164(digitsOnly)) {
+      throw new ContactError(
+        "'phone' must be a valid phone number in E.164 format (e.g. +14155550123)",
+        400
+      );
+    }
+    const existing = await findExistingContact(db, accountId, digitsOnly);
+    if (existing) {
+      if (recipientId && !existing.recipient_id) {
+        await db.from('contacts').update({ recipient_id: recipientId }).eq('id', existing.id)
+      }
+      return { id: existing.id, created: false };
+    }
+
+    const { data: created, error } = await db
+      .from('contacts')
+      .insert({
+        account_id: accountId,
+        user_id: auditUserId,
+        phone: digitsOnly,
+        recipient_id: recipientId || null,
+        name: input.name ?? digitsOnly,
+        email: input.email ?? null,
+        company: input.company ?? null,
+      })
+      .select('id')
+      .single();
+
+    if (error || !created) {
+      if (isUniqueViolation(error)) {
+        const raced = await findExistingContact(db, accountId, digitsOnly);
+        if (raced) return { id: raced.id, created: false };
+      }
+      console.error('[api/v1/contacts] create error:', error);
+      throw new ContactError('Failed to create contact', 500);
+    }
+
+    return { id: created.id, created: true };
+  }
+
+  // Look up by recipient_id (IG/FB path)
+  const { data: existing } = await db
+    .from('contacts')
+    .select('id')
+    .eq('account_id', accountId)
+    .eq('recipient_id', recipientId)
+    .maybeSingle()
+
   if (existing) return { id: existing.id, created: false };
 
   const { data: created, error } = await db
@@ -128,8 +183,8 @@ export async function findOrCreateContact(
     .insert({
       account_id: accountId,
       user_id: auditUserId,
-      phone: sanitized,
-      name: input.name ?? sanitized,
+      recipient_id: recipientId,
+      name: input.name ?? recipientId,
       email: input.email ?? null,
       company: input.company ?? null,
     })
@@ -137,10 +192,13 @@ export async function findOrCreateContact(
     .single();
 
   if (error || !created) {
-    // Lost a race against a concurrent create — the unique index
-    // rejected the duplicate. Re-resolve to the winner.
     if (isUniqueViolation(error)) {
-      const raced = await findExistingContact(db, accountId, sanitized);
+      const { data: raced } = await db
+        .from('contacts')
+        .select('id')
+        .eq('account_id', accountId)
+        .eq('recipient_id', recipientId)
+        .maybeSingle()
       if (raced) return { id: raced.id, created: false };
     }
     console.error('[api/v1/contacts] create error:', error);

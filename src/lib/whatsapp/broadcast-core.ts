@@ -27,6 +27,7 @@ import {
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils';
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
+import type { ChannelType } from '@/types/channel';
 import type { MessageTemplate } from '@/types';
 import { findOrCreateContact } from '@/lib/api/v1/contacts';
 
@@ -66,7 +67,8 @@ export interface BroadcastPlan {
   broadcastId: string;
   templateName: string;
   templateLanguage: string;
-  phoneNumberId: string;
+  channelId: string;
+  channel: ChannelType;
   accessToken: string;
   templateRow: MessageTemplate | null;
   planned: PlannedRecipient[];
@@ -110,11 +112,12 @@ export async function createBroadcast(
   }
 
   // Config (fail fast + provides the audit trail owner already resolved
-  // by the caller). Meta send needs phone_number_id + decrypted token.
+  // by the caller). Meta send needs channel_id + decrypted token.
   const { data: config, error: configError } = await db
-    .from('whatsapp_config')
+    .from('channel_configs')
     .select('*')
     .eq('account_id', accountId)
+    .eq('channel', 'whatsapp')
     .single();
   if (configError || !config) {
     throw new BroadcastError(
@@ -238,7 +241,8 @@ export async function createBroadcast(
     broadcastId: broadcast.id,
     templateName,
     templateLanguage,
-    phoneNumberId: config.phone_number_id,
+    channelId: config.channel_id,
+    channel: (config.channel as ChannelType) ?? 'whatsapp',
     accessToken,
     templateRow,
     planned,
@@ -273,7 +277,13 @@ export async function deliverBroadcast(
     for (const variant of variants) {
       try {
         const result = await sendTemplateMessage({
-          phoneNumberId: plan.phoneNumberId,
+          channelId: plan.channelId,
+          // Plan.channel is the raw ChannelType from channel_configs
+          // (including 'messenger'); the outbound helper accepts the
+          // narrower SendChannel union. createBroadcast queries with
+          // .eq('channel', 'whatsapp'), so plan.channel is 'whatsapp'
+          // in practice — the cast is just to satisfy the type system.
+          messagingProduct: plan.channel as 'whatsapp' | 'instagram',
           accessToken: plan.accessToken,
           to: variant,
           templateName: plan.templateName,

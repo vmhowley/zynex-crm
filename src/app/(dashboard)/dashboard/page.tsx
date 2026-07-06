@@ -40,7 +40,6 @@ type RangeDays = 7 | 30 | 90
 export default function DashboardPage() {
   const { defaultCurrency } = useAuth()
   const { t } = useTranslations()
-  const isEn = t("auth.login") !== "Iniciar Sesión"
   
   const [metrics, setMetrics] = useState<MetricsBundle | null>(null)
   const [metricsLoading, setMetricsLoading] = useState(true)
@@ -113,11 +112,9 @@ export default function DashboardPage() {
     <div className="space-y-5">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">{t("nav.dashboard")}</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("nav_dashboard")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {isEn 
-            ? "Live analytics of conversations, contacts, deals, broadcasts and automations."
-            : "Analítica en vivo de conversaciones, contactos, negocios, envíos y automatizaciones."}
+          {t("dashboard_liveAnalytics")}
         </p>
       </div>
 
@@ -128,16 +125,16 @@ export default function DashboardPage() {
         ) : (
           <>
             <MetricCard
-              title={isEn ? "Active Conversations" : "Conversaciones Activas"}
+              title={t("dashboard_activeConversations")}
               value={metrics.activeConversations.current.toLocaleString()}
               icon={MessageSquare}
               delta={{
                 sign: metrics.activeConversations.previous,
-                label: deltaLabel(metrics.activeConversations.previous, isEn ? 'new today vs yesterday' : 'nuevos hoy vs ayer'),
+                label: deltaLabel(metrics.activeConversations.previous, t('dashboard_newTodayVsYesterday')),
               }}
             />
             <MetricCard
-              title={isEn ? "New Contacts Today" : "Contactos Nuevos Hoy"}
+              title={t("dashboard_newContactsToday")}
               value={metrics.newContactsToday.current.toLocaleString()}
               icon={UserPlus}
               delta={{
@@ -145,18 +142,18 @@ export default function DashboardPage() {
                   metrics.newContactsToday.current - metrics.newContactsToday.previous,
                 label: deltaLabel(
                   metrics.newContactsToday.current - metrics.newContactsToday.previous,
-                  isEn ? 'vs yesterday' : 'vs ayer',
+                  t('dashboard_vsYesterday'),
                 ),
               }}
             />
             <MetricCard
-              title={isEn ? "Open Deals Value" : "Valor de Negocios Abiertos"}
+              title={t("dashboard_openDealsValue")}
               value={formatCurrency(metrics.openDealsValue, defaultCurrency)}
               icon={DollarSign}
-              subtitle={`${metrics.openDealsCount} ${isEn ? 'open deal' : 'negocio abierto'}${metrics.openDealsCount === 1 ? '' : 's'}`}
+              subtitle={`${metrics.openDealsCount} ${metrics.openDealsCount === 1 ? t('dashboard_openDeal') : t('dashboard_openDeals')}`}
             />
             <MetricCard
-              title={isEn ? "Messages Sent Today" : "Mensajes Enviados Hoy"}
+              title={t("dashboard_messagesSentToday")}
               value={metrics.messagesSentToday.current.toLocaleString()}
               icon={Send}
               delta={{
@@ -164,7 +161,7 @@ export default function DashboardPage() {
                   metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
                 label: deltaLabel(
                   metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
-                  isEn ? 'vs yesterday' : 'vs ayer',
+                  t('dashboard_vsYesterday'),
                 ),
               }}
             />
@@ -204,7 +201,9 @@ export default function DashboardPage() {
 }
 
 function deltaLabel(delta: number, suffix: string): string {
-  if (delta === 0) return `No change ${suffix}`
+  const { t } = useTranslations()
+
+  if (delta === 0) return `${t('No change')} ${suffix}`
   const sign = delta > 0 ? '+' : ''
   return `${sign}${delta.toLocaleString()} ${suffix}`
 }

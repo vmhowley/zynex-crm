@@ -5,10 +5,9 @@ import { MessageSquare, ArrowLeft, CheckCircle, Zap } from "lucide-react";
 import { useTranslations } from "@/hooks/use-translations";
 
 export default function GettingStartedPage() {
-  const { t } = useTranslations();
-  const isEn = t("auth.login") !== "Iniciar Sesión";
+  const { t, locale } = useTranslations();
 
-  const content = isEn ? {
+  const content = locale === 'en' ? {
     title: "Getting Started with Zynex CRM",
     subtitle: "Learn the basics to start using Zynex CRM in minutes.",
     step1: "Create your account",

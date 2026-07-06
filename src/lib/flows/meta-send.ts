@@ -9,11 +9,11 @@ import {
 } from '@/lib/whatsapp/meta-api'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import {
-  sanitizePhoneForMeta,
   isValidE164,
   phoneVariants,
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils'
+import { getRecipientFromContact } from '@/lib/contacts/recipient'
 import { supabaseAdmin } from './admin-client'
 
 // ------------------------------------------------------------
@@ -64,23 +64,28 @@ export async function engineSendText(
 
   const { data: contact, error: contactErr } = await db
     .from('contacts')
-    .select('id, phone')
+    .select('id, phone, recipient_id')
     .eq('id', args.contactId)
     .eq('account_id', args.accountId)
     .maybeSingle()
-  if (contactErr || !contact?.phone) {
+  if (contactErr || !contact) {
     throw new Error('contact not found for this account')
   }
 
-  const sanitized = sanitizePhoneForMeta(contact.phone)
-  if (!isValidE164(sanitized)) {
+  const recipient = getRecipientFromContact(contact)
+  const isPhoneRecipient = !!contact.phone?.trim()
+  const sanitized = isPhoneRecipient
+    ? contact.phone.trim().replace(/\D/g, '')
+    : recipient
+  if (isPhoneRecipient && !isValidE164(sanitized)) {
     throw new Error(`contact phone invalid: ${contact.phone}`)
   }
 
   const { data: config, error: configErr } = await db
-    .from('whatsapp_config')
-    .select('*')
+    .from('channel_configs')
+    .select('channel_id, channel, access_token')
     .eq('account_id', args.accountId)
+    .eq('channel', 'whatsapp')
     .single()
   if (configErr || !config) {
     throw new Error('WhatsApp not configured for this account')
@@ -90,7 +95,8 @@ export async function engineSendText(
 
   const attempt = async (phone: string): Promise<string> => {
     const r = await sendTextMessage({
-      phoneNumberId: config.phone_number_id,
+      channelId: config.channel_id,
+      messagingProduct: 'whatsapp',
       accessToken,
       to: phone,
       text: args.text,
@@ -173,23 +179,28 @@ export async function engineSendMedia(
 
   const { data: contact, error: contactErr } = await db
     .from('contacts')
-    .select('id, phone')
+    .select('id, phone, recipient_id')
     .eq('id', args.contactId)
     .eq('account_id', args.accountId)
     .maybeSingle()
-  if (contactErr || !contact?.phone) {
+  if (contactErr || !contact) {
     throw new Error('contact not found for this account')
   }
 
-  const sanitized = sanitizePhoneForMeta(contact.phone)
-  if (!isValidE164(sanitized)) {
+  const recipient = getRecipientFromContact(contact)
+  const isPhoneRecipient = !!contact.phone?.trim()
+  const sanitized = isPhoneRecipient
+    ? contact.phone.trim().replace(/\D/g, '')
+    : recipient
+  if (isPhoneRecipient && !isValidE164(sanitized)) {
     throw new Error(`contact phone invalid: ${contact.phone}`)
   }
 
   const { data: config, error: configErr } = await db
-    .from('whatsapp_config')
-    .select('*')
+    .from('channel_configs')
+    .select('channel_id, channel, access_token')
     .eq('account_id', args.accountId)
+    .eq('channel', 'whatsapp')
     .single()
   if (configErr || !config) {
     throw new Error('WhatsApp not configured for this account')
@@ -199,7 +210,8 @@ export async function engineSendMedia(
 
   const attempt = async (phone: string): Promise<string> => {
     const r = await sendMediaMessage({
-      phoneNumberId: config.phone_number_id,
+      channelId: config.channel_id,
+      messagingProduct: 'whatsapp',
       accessToken,
       to: phone,
       kind: args.kind,
@@ -325,23 +337,28 @@ async function sendInteractiveViaMeta(
   // Migration 017 moved both tables to account-scoped tenancy.
   const { data: contact, error: contactErr } = await db
     .from('contacts')
-    .select('id, phone')
+    .select('id, phone, recipient_id')
     .eq('id', input.contactId)
     .eq('account_id', input.accountId)
     .maybeSingle()
-  if (contactErr || !contact?.phone) {
+  if (contactErr || !contact) {
     throw new Error('contact not found for this account')
   }
 
-  const sanitized = sanitizePhoneForMeta(contact.phone)
-  if (!isValidE164(sanitized)) {
+  const recipient = getRecipientFromContact(contact)
+  const isPhoneRecipient = !!contact.phone?.trim()
+  const sanitized = isPhoneRecipient
+    ? contact.phone.trim().replace(/\D/g, '')
+    : recipient
+  if (isPhoneRecipient && !isValidE164(sanitized)) {
     throw new Error(`contact phone invalid: ${contact.phone}`)
   }
 
   const { data: config, error: configErr } = await db
-    .from('whatsapp_config')
-    .select('*')
+    .from('channel_configs')
+    .select('channel_id, channel, access_token')
     .eq('account_id', input.accountId)
+    .eq('channel', 'whatsapp')
     .single()
   if (configErr || !config) {
     throw new Error('WhatsApp not configured for this account')
@@ -352,7 +369,8 @@ async function sendInteractiveViaMeta(
   const attempt = async (phone: string): Promise<string> => {
     if (input.kind === 'buttons') {
       const r = await sendInteractiveButtons({
-        phoneNumberId: config.phone_number_id,
+        channelId: config.channel_id,
+        messagingProduct: 'whatsapp',
         accessToken,
         to: phone,
         bodyText: input.bodyText,
@@ -363,7 +381,8 @@ async function sendInteractiveViaMeta(
       return r.messageId
     }
     const r = await sendInteractiveList({
-      phoneNumberId: config.phone_number_id,
+      channelId: config.channel_id,
+      messagingProduct: 'whatsapp',
       accessToken,
       to: phone,
       bodyText: input.bodyText,

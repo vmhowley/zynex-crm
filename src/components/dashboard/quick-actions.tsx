@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { UserPlus, Briefcase, Radio, Zap } from 'lucide-react'
 import type { ComponentType } from 'react'
+import { useTranslations } from '@/hooks/use-translations'
 
 // Quick-action shortcuts. Each navigates to the page that owns the
 // relevant "create" flow. We deliberately don't try to auto-open any
@@ -15,14 +16,17 @@ interface Action {
   tint: string
 }
 
-const ACTIONS: Action[] = [
-  { label: 'New Contact', href: '/contacts', icon: UserPlus, tint: 'text-primary' },
-  { label: 'New Deal', href: '/pipelines', icon: Briefcase, tint: 'text-blue-400' },
-  { label: 'New Broadcast', href: '/broadcasts/new', icon: Radio, tint: 'text-amber-400' },
-  { label: 'New Automation', href: '/automations/new', icon: Zap, tint: 'text-primary' },
-]
+
 
 export function QuickActions() {
+    const { t } = useTranslations()
+
+const ACTIONS: Action[] = [
+  { label: t('New Contact'), href: '/contacts', icon: UserPlus, tint: 'text-primary' },
+  { label:  t('New Deal'), href: '/pipelines', icon: Briefcase, tint: 'text-blue-400' },
+  { label: t('New Broadcast'), href: '/broadcasts/new', icon: Radio, tint: 'text-amber-400' },
+  { label: t('New Automation'), href: '/automations/new', icon: Zap, tint: 'text-primary' },
+]
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {ACTIONS.map((a) => {

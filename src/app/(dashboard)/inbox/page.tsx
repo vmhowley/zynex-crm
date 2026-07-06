@@ -25,7 +25,6 @@ export default function InboxPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useTranslations();
-  const isEn = t("auth.login") !== "Iniciar Sesión";
   /**
    * `?c=<id>` deep-link support. Used when landing here from the
    * dashboard's recent-conversations list so the right thread opens
@@ -559,9 +558,7 @@ export default function InboxPage() {
         <div className="flex shrink-0 items-center justify-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2">
           <WifiOff className="h-4 w-4 text-amber-400" />
           <p className="text-xs text-amber-400">
-            {isEn 
-              ? "WhatsApp® is not connected. Go to Settings to connect your account."
-              : "WhatsApp® no está conectado. Ve a Configuración para conectar tu cuenta."}
+            {t("inbox_whatsappNotConnected")}
           </p>
         </div>
       )}

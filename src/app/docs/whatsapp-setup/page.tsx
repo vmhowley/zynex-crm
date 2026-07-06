@@ -5,10 +5,9 @@ import { MessageSquare, ArrowLeft, ArrowRight, CheckCircle } from "lucide-react"
 import { useTranslations } from "@/hooks/use-translations";
 
 export default function WhatsAppSetupPage() {
-  const { t } = useTranslations();
-  const isEn = t("auth.login") !== "Iniciar Sesión";
+  const { t, locale } = useTranslations();
 
-  const content = isEn ? {
+  const content = locale === 'en' ? {
     title: "WhatsApp Setup",
     subtitle: "Connect your WhatsApp Business number to start receiving and sending messages.",
     step1: "Create Meta App",
@@ -65,14 +64,14 @@ export default function WhatsAppSetupPage() {
             <span className="text-xl font-bold">Zynex CRM</span>
           </Link>
           <Link href="/pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground">
-            {isEn ? "Pricing" : "Precios"}
+            {locale === 'en' ? "Pricing" : "Precios"}
           </Link>
         </div>
       </header>
 
       <div className="container mx-auto px-4 py-12 max-w-3xl">
         <Link href="/docs/getting-started" className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1">
-          <ArrowLeft className="h-4 w-4" /> {isEn ? "Back to Documentation" : "Volver a Documentación"}
+          <ArrowLeft className="h-4 w-4" /> {locale === 'en' ? "Back to Documentation" : "Volver a Documentación"}
         </Link>
 
         <h1 className="text-4xl font-bold mb-4">{c.title}</h1>
@@ -115,7 +114,7 @@ export default function WhatsAppSetupPage() {
         <div className="mt-12 p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
           <div className="flex items-center gap-2 text-green-500">
             <CheckCircle className="h-5 w-5" />
-            <span className="font-medium">{isEn ? "WhatsApp connected successfully!" : "¡WhatsApp conectado exitosamente!"}</span>
+            <span className="font-medium">{locale === 'en' ? "WhatsApp connected successfully!" : "¡WhatsApp conectado exitosamente!"}</span>
           </div>
         </div>
 

@@ -15,6 +15,7 @@ import {
   rateLimitResponse,
   RATE_LIMITS,
 } from '@/lib/rate-limit'
+import type { ChannelType } from '@/types/channel'
 
 interface BroadcastResult {
   phone: string
@@ -103,7 +104,27 @@ export async function POST(request: Request) {
       template_name,
       template_language,
       template_params,
-    } = body
+      channel,
+    } = body as {
+      recipients?: NewRecipient[]
+      phone_numbers?: string[]
+      template_name?: string
+      template_language?: string
+      template_params?: string[]
+      channel?: ChannelType
+    }
+
+    // Default to WhatsApp — matches the original (pre-channel) behaviour.
+    const sendChannel: ChannelType = channel ?? 'whatsapp'
+    if (sendChannel !== 'whatsapp') {
+      return NextResponse.json(
+        {
+          error:
+            'Broadcasts currently only support the WhatsApp channel. Instagram/Messenger support is forthcoming.',
+        },
+        { status: 422 },
+      )
+    }
 
     // Normalize to a list of {phone, params} regardless of shape.
     let recipients: NewRecipient[]
@@ -135,9 +156,10 @@ export async function POST(request: Request) {
     }
 
     const { data: config, error: configError } = await supabase
-      .from('whatsapp_config')
+      .from('channel_configs')
       .select('*')
       .eq('account_id', accountId)
+      .eq('channel', sendChannel)
       .single()
 
     if (configError || !config) {
@@ -201,7 +223,8 @@ export async function POST(request: Request) {
       for (const variant of variants) {
         try {
           const result = await sendTemplateMessage({
-            phoneNumberId: config.phone_number_id,
+            channelId: config.channel_id,
+            messagingProduct: sendChannel,
             accessToken,
             to: variant,
             templateName: template_name,

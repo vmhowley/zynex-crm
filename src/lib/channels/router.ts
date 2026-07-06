@@ -40,48 +40,60 @@ export interface WebhookValue {
  * Detect channel from webhook payload.
  * Meta sends different messaging_product values:
  * - 'whatsapp' for WhatsApp
- * - 'instagram' for Instagram
+ * - 'instagram' for Instagram (when present)
+ *
+ * Messenger webhooks NEVER send messaging_product — we detect
+ * them by payload.object === 'page' as a fallback.
  */
 export function detectChannel(payload: WebhookPayload): ChannelType {
-  if (!payload.entry?.[0]?.changes?.[0]?.value?.messaging_product) {
-    // Default to WhatsApp for backward compatibility
-    return 'whatsapp'
-  }
+  const value = payload.entry?.[0]?.changes?.[0]?.value
+  if (!value) return 'whatsapp'
 
-  const messagingProduct = payload.entry[0].changes[0].value.messaging_product
-
-  switch (messagingProduct) {
-    case 'whatsapp':
-      return 'whatsapp'
-    case 'instagram':
-      return 'instagram'
-    default:
-      // Check for other indicators
-      const metadata = payload.entry[0].changes[0].value.metadata
-      if (metadata?.ig_business_account_id) {
-        return 'instagram'
-      }
-      // Default to WhatsApp for backward compatibility
-      return 'whatsapp'
-  }
+  if (value.messaging_product === 'whatsapp') return 'whatsapp'
+  if (value.messaging_product === 'instagram') return 'instagram'
+  if (value.metadata?.ig_business_account_id) return 'instagram'
+  if (payload.object === 'page') return 'messenger'
+  return 'whatsapp'
 }
 
 /**
  * Extract channel identifier from webhook metadata.
  * Different channels use different ID fields.
+ *
+ * - whatsapp   → metadata.phone_number_id
+ * - instagram  → metadata.ig_business_account_id ?? metadata.page_id
+ * - messenger  → metadata.page_id
+ *
+ * @param value The webhook change value
+ * @param channel The detected channel type (from detectChannel)
  */
-export function getChannelIdFromWebhook(value: WebhookValue): string | null {
-  // WhatsApp uses phone_number_id
-  if (value.metadata?.phone_number_id) {
-    return value.metadata.phone_number_id
+export function getChannelIdFromWebhook(
+  value: WebhookValue,
+  channel: ChannelType,
+): string | null {
+  switch (channel) {
+    case 'whatsapp':
+      return value.metadata?.phone_number_id ?? null
+    case 'instagram':
+      return value.metadata?.ig_business_account_id ?? value.metadata?.page_id ?? null
+    case 'messenger':
+      return value.metadata?.page_id ?? null
+    default:
+      return null
   }
+}
 
-  // Instagram/Messenger use page_id
-  if (value.metadata?.page_id) {
-    return value.metadata.page_id
-  }
-
-  return null
+/**
+ * Detect channel from webhook payload and return both the channel
+ * type and the corresponding channel ID in one call.
+ */
+export function detectChannelAndId(
+  payload: WebhookPayload,
+): { channel: ChannelType; channelId: string | null } {
+  const channel = detectChannel(payload)
+  const value = payload.entry?.[0]?.changes?.[0]?.value
+  const channelId = value ? getChannelIdFromWebhook(value, channel) : null
+  return { channel, channelId }
 }
 
 /**

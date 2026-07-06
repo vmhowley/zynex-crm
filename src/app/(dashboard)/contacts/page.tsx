@@ -66,7 +66,6 @@ interface ContactWithTags extends Contact {
 
 export default function ContactsPage() {
   const { t } = useTranslations();
-  const isEn = t("auth.login") !== "Iniciar Sesión";
   
   const supabase = createClient();
   const canEdit = useCan('send-messages');
@@ -346,11 +345,9 @@ export default function ContactsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{t("contacts.title")}</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t("contacts_title")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {isEn 
-              ? `Manage your contact list. ${totalCount > 0 ? `${totalCount} total contacts.` : ''}`
-              : `Gestiona tu lista de contactos. ${totalCount > 0 ? `${totalCount} contactos en total.` : ''}`}
+            {t("contacts_manageContactList")} {totalCount > 0 ? t("contacts_totalContacts", { count: totalCount }) : ''}
           </p>
         </div>
         <div className="flex items-center gap-2">

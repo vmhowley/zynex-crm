@@ -16,8 +16,10 @@ export type ChannelConfig = {
   channel_id: string
   /** WhatsApp Business Account ID (WhatsApp only) */
   waba_id?: string
+  /** Instagram Business Account ID (Instagram only) */
+  ig_business_account_id?: string
   access_token: string
-  verify_token?: string
+  webhook_verify_token?: string
   status: 'connected' | 'disconnected'
   connected_at?: string
   created_at: string

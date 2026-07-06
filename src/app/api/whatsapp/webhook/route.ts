@@ -13,7 +13,7 @@ import {
   handleTemplateWebhookChange,
   isTemplateWebhookField,
 } from '@/lib/whatsapp/template-webhook'
-import { getChannelConfigByChannelId } from '@/lib/channels'
+import { resolveChannelConfigFromWebhook } from '@/lib/channels'
 
 // The `after()` callback in POST runs within this route's max duration.
 // Inbound processing can fan out to per-media Meta verification calls, so
@@ -64,13 +64,15 @@ interface WhatsAppMessage {
 
 interface WhatsAppWebhookEntry {
   id: string
+  object: 'whatsapp_business_account' | 'instagram' | 'page'
   changes: Array<{
     value: {
       messaging_product: string
       metadata: {
-        display_phone_number: string
-        phone_number_id: string
+        display_phone_number?: string
+        phone_number_id?: string
         page_id?: string
+        ig_business_account_id?: string
       }
       contacts?: Array<{
         profile: { name: string }
@@ -247,44 +249,25 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
       // Handle incoming messages
       if (!value.messages || !value.contacts) continue
 
-      const channelId = value.metadata.phone_number_id || value.metadata.page_id
+      // Resolve the channel config from the webhook value using the
+      // multi-channel resolver. It tries each identifier in order:
+      //   ig_business_account_id → Instagram
+      //   page_id → Instagram, then Messenger
+      //   phone_number_id → WhatsApp
+      const resolved = await resolveChannelConfigFromWebhook(
+        supabaseAdmin(),
+        value as import('@/lib/channels/router').WebhookValue
+      )
 
-      // Find user's config by channel_id (phone_number_id for WhatsApp, page_id for IG/FB).
-      // Uses channel_configs table (migrated from whatsapp_config).
-      const { data: configRows, error: configError } = await supabaseAdmin()
-        .from('channel_configs')
-        .select('*')
-        .eq('channel_id', channelId)
-
-      if (configError) {
+      if (!resolved) {
         console.error(
-          'Error fetching channel_config for channel_id:',
-          channelId,
-          configError
+          'No channel config found for webhook payload — metadata:',
+          JSON.stringify(value.metadata)
         )
         continue
       }
 
-      if (!configRows || configRows.length === 0) {
-        console.error('No config found for channel_id:', channelId)
-        continue
-      }
-
-      if (configRows.length > 1) {
-        console.error(
-          `Multiple configs (${configRows.length}) found for channel_id:`,
-          channelId,
-          '— inbound message dropped. Resolve duplicates so each channel maps to a single account.',
-          'Account owners:',
-          configRows.map((r: { account_id: string; user_id: string; channel: string }) => 
-            `${r.account_id} (${r.channel} admin ${r.user_id})`
-          )
-        )
-        continue
-      }
-
-      const config = configRows[0]
-      const channel = config.channel || 'whatsapp' // Default to whatsapp for backward compat
+      const { config, channel } = resolved
 
       const decryptedAccessToken = decrypt(config.access_token)
 
@@ -575,7 +558,13 @@ async function processMessage(
   // Channel type: whatsapp, instagram, or messenger
   channel: string = 'whatsapp'
 ) {
-  const senderPhone = normalizePhone(message.from)
+  // Channel-specific sender identification:
+  //   - whatsapp:   message.from is a phone number → normalize to digits
+  //   - instagram:  message.from is an opaque user ID → store as recipient_id
+  //   - messenger:  message.from is an opaque user ID → store as recipient_id
+  const isWaChannel = channel === 'whatsapp'
+  const senderPhone = isWaChannel ? normalizePhone(message.from) : null
+  const senderRecipientId = isWaChannel ? null : message.from
   const contactName = contact.profile.name
 
   // Find or create contact
@@ -583,7 +572,9 @@ async function processMessage(
     accountId,
     configOwnerUserId,
     senderPhone,
-    contactName
+    senderRecipientId,
+    contactName,
+    channel
   )
   if (!contactOutcome) return
   const contactRecord = contactOutcome.contact
@@ -981,20 +972,35 @@ interface ContactOutcome {
 async function findOrCreateContact(
   accountId: string,
   configOwnerUserId: string,
-  phone: string,
-  name: string
+  phone: string | null,
+  recipientId: string | null,
+  name: string,
+  channel: string = 'whatsapp',
 ): Promise<ContactOutcome | null> {
-  // Find an existing contact for this account by phone. The shared
-  // helper pre-filters in SQL by the last-8-digit suffix (so we don't
-  // pull every contact on every inbound message) then applies the
-  // strict `phonesMatch` in JS on the small candidate set. The same
-  // helper backs the manual contact form and CSV import, so all three
-  // paths agree on what "same number" means (issue #212).
-  const existingContact = await findExistingContact(
-    supabaseAdmin(),
-    accountId,
-    phone,
-  )
+  // Find existing contact scoped to the channel type:
+  //   - WhatsApp: lookup by (account_id, phone)
+  //   - IG/FB:    lookup by (account_id, recipient_id)
+  let existingContact = null
+
+  if (channel === 'whatsapp') {
+    if (!phone) {
+      console.error('[webhook] WhatsApp message with no sender phone — dropping')
+      return null
+    }
+    existingContact = await findExistingContact(
+      supabaseAdmin(),
+      accountId,
+      phone,
+    )
+  } else if (recipientId) {
+    const { data } = await supabaseAdmin()
+      .from('contacts')
+      .select('*')
+      .eq('account_id', accountId)
+      .eq('recipient_id', recipientId)
+      .maybeSingle()
+    existingContact = data ?? null
+  }
 
   if (existingContact) {
     // Update name if it changed
@@ -1004,6 +1010,13 @@ async function findOrCreateContact(
         .update({ name, updated_at: new Date().toISOString() })
         .eq('id', existingContact.id)
     }
+    // Backfill recipient_id if the existing row has none
+    if (recipientId && !existingContact.recipient_id) {
+      await supabaseAdmin()
+        .from('contacts')
+        .update({ recipient_id: recipientId, updated_at: new Date().toISOString() })
+        .eq('id', existingContact.id)
+    }
     return { contact: existingContact, wasCreated: false }
   }
 
@@ -1011,14 +1024,17 @@ async function findOrCreateContact(
   // user_id is the NOT NULL FK audit column (no inbound message
   // has a single "user who created" it — we attribute to the
   // WhatsApp config owner as a stable default).
+  const insertPayload: Record<string, unknown> = {
+    account_id: accountId,
+    user_id: configOwnerUserId,
+    name: name || (phone ?? recipientId ?? 'Unknown'),
+  }
+  if (phone) insertPayload.phone = phone
+  if (recipientId) insertPayload.recipient_id = recipientId
+
   const { data: newContact, error: createError } = await supabaseAdmin()
     .from('contacts')
-    .insert({
-      account_id: accountId,
-      user_id: configOwnerUserId,
-      phone,
-      name: name || phone,
-    })
+    .insert(insertPayload)
     .select()
     .single()
 
@@ -1028,8 +1044,18 @@ async function findOrCreateContact(
     // unique index (migration 022) rejected the duplicate. Re-resolve
     // the existing row instead of dropping the message.
     if (isUniqueViolation(createError)) {
-      const raced = await findExistingContact(supabaseAdmin(), accountId, phone)
-      if (raced) return { contact: raced, wasCreated: false }
+      if (phone) {
+        const raced = await findExistingContact(supabaseAdmin(), accountId, phone)
+        if (raced) return { contact: raced, wasCreated: false }
+      } else if (recipientId) {
+        const { data: raced } = await supabaseAdmin()
+          .from('contacts')
+          .select('*')
+          .eq('account_id', accountId)
+          .eq('recipient_id', recipientId)
+          .maybeSingle()
+        if (raced) return { contact: raced, wasCreated: false }
+      }
     }
     console.error('Error creating contact:', createError)
     return null

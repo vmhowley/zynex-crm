@@ -5,10 +5,9 @@ import { MessageSquare, Users, Radio, Workflow, Settings, Sparkles, BarChart3, Z
 import { useTranslations } from "@/hooks/use-translations";
 
 export default function DocsPage() {
-  const { t } = useTranslations();
-  const isEn = t("auth.login") !== "Iniciar Sesión";
+  const { t, locale } = useTranslations();
 
-  const sections = isEn ? {
+  const sections = locale === 'en' ? {
     title: "Documentation",
     subtitle: "Learn how to use Zynex CRM to manage your WhatsApp business.",
     setup: "Getting Started",
@@ -107,7 +106,7 @@ export default function DocsPage() {
           </div>
           <nav className="hidden md:flex items-center gap-6">
             <Link href="/docs" className="text-sm font-medium text-primary">{s.title}</Link>
-            <Link href="/pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground">{isEn ? "Pricing" : "Precios"}</Link>
+            <Link href="/pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground">{locale === 'en' ? "Pricing" : "Precios"}</Link>
           </nav>
         </div>
       </header>

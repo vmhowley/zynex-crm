@@ -21,7 +21,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
-import { sanitizePhoneForMeta, isValidE164 } from '@/lib/whatsapp/phone-utils';
+import { isValidE164, sanitizePhoneForMeta } from '@/lib/whatsapp/phone-utils';
 import { SendMessageError } from '@/lib/whatsapp/send-message';
 import { resolveAuditUserId, ContactError } from '@/lib/api/v1/contacts';
 
@@ -56,9 +56,10 @@ export async function resolveConversationByPhone(
   // Fail fast (and create nothing) when the account has no WhatsApp
   // connected — the same error the send would raise anyway.
   const { data: config } = await db
-    .from('whatsapp_config')
+    .from('channel_configs')
     .select('id')
     .eq('account_id', accountId)
+    .eq('channel', 'whatsapp')
     .maybeSingle();
   if (!config) {
     throw new SendMessageError(

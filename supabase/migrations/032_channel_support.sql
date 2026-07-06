@@ -23,7 +23,7 @@ BEGIN
 END $$;
 
 -- ============================================================
--- WHATSAPP_CONFIG → CHANNEL_CONFIGS
+-- WHANNEL_CONFIGS → CHANNEL_CONFIGS
 -- Rename and add channel column
 -- ============================================================
 
@@ -33,6 +33,25 @@ ALTER TABLE whatsapp_config
 
 -- Rename for consistency (keeps backward compat - old name still works)
 ALTER TABLE whatsapp_config RENAME TO channel_configs;
+
+-- Rename the per-channel identifier column to match the new vocabulary
+-- (the channel_configs.channel_id stores phone_number_id for WhatsApp,
+-- page_id for Messenger, ig_business_account_id for Instagram).
+ALTER TABLE channel_configs RENAME COLUMN phone_number_id TO channel_id;
+
+-- Rename the legacy unique constraint that referenced the old column name
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'whatsapp_config_phone_number_id_key'
+      AND conrelid = 'channel_configs'::regclass
+  ) THEN
+    ALTER TABLE channel_configs
+      RENAME CONSTRAINT whatsapp_config_phone_number_id_key
+      TO channel_configs_channel_id_key;
+  END IF;
+END $$;
 
 -- Update unique constraint to include channel (allows multiple channels per account)
 ALTER TABLE channel_configs DROP CONSTRAINT IF EXISTS whatsapp_config_account_id_key;

@@ -12,7 +12,7 @@ import { SendMessageError } from './send-message';
 type ContactRow = { id: string; phone: string; name?: string | null };
 
 interface Script {
-  config?: { user_id: string } | null; // whatsapp_config.maybeSingle
+  config?: { user_id: string } | null; // channel_configs.maybeSingle
   contactCandidates?: ContactRow[]; // contacts .like (same every call)
   /** Per-call `.like` results — overrides contactCandidates. Lets a
    *  test simulate "miss, then hit" for the unique-race path. */
@@ -47,7 +47,7 @@ function makeDb(script: Script): SupabaseClient {
       return Promise.resolve({ data, error: null });
     },
     maybeSingle: () => {
-      if (table === 'whatsapp_config')
+      if (table === 'channel_configs')
         return Promise.resolve({ data: script.config ?? null, error: null });
       if (table === 'conversations' && mode === 'select')
         return Promise.resolve({

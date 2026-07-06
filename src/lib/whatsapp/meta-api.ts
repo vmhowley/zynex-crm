@@ -9,8 +9,44 @@
  * instead of a runtime rejection from Meta.
  */
 
+import type { ChannelType } from '@/types/channel'
+
 const META_API_VERSION = 'v21.0'
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`
+
+/** Channels the outbound send helpers accept. Messenger is a follow-up. */
+export type SendChannel = Extract<ChannelType, 'whatsapp' | 'instagram'>
+
+export class UnsupportedChannelError extends Error {
+  readonly code = 'unsupported_channel_op' as const
+  readonly channel: ChannelType
+  readonly operation: 'reaction' | 'template' | 'interactive' | 'text' | 'media'
+  constructor(
+    channel: ChannelType,
+    operation: 'reaction' | 'template' | 'interactive' | 'text' | 'media',
+    detail: string,
+  ) {
+    super(`Channel "${channel}" does not support ${operation}: ${detail}`)
+    this.name = 'UnsupportedChannelError'
+    this.channel = channel
+    this.operation = operation
+  }
+}
+
+export type MessagingProduct = SendChannel
+
+function buildMessagingBody(channel: SendChannel, to: string, payload: Record<string, unknown>) {
+  return {
+    messaging_product: channel,
+    recipient_type: 'individual',
+    to,
+    ...payload,
+  }
+}
+
+function getMessagesEndpoint(_channel: SendChannel, channelId: string) {
+  return `${META_API_BASE}/${channelId}/messages`
+}
 
 export interface MetaSendResult {
   messageId: string
@@ -91,7 +127,9 @@ export async function verifyPhoneNumber(
 // the helpers below treat that as success.
 
 export interface RegisterPhoneNumberArgs {
-  phoneNumberId: string
+  messagingProduct: MessagingProduct
+  /** phone_number_id for whatsapp, ig_user_id for instagram. */
+  channelId: string
   accessToken: string
   /**
    * 6-digit PIN the user set in Meta WhatsApp Manager →
@@ -115,6 +153,10 @@ export interface RegisterPhoneNumberResult {
 /**
  * Register a phone number for inbound webhook events.
  *
+ * WhatsApp-only — Instagram and Messenger do not expose a /register
+ * endpoint; the registration flow is a WhatsApp Business onboarding
+ * step that runs once per phone number.
+ *
  * Errors that should be surfaced verbatim to the user:
  *   * Missing / wrong PIN  → "Two-step verification PIN required..."
  *   * No 2FA enabled       → "Two-factor authentication is not on..."
@@ -123,7 +165,7 @@ export interface RegisterPhoneNumberResult {
 export async function registerPhoneNumber(
   args: RegisterPhoneNumberArgs
 ): Promise<RegisterPhoneNumberResult> {
-  const { phoneNumberId, accessToken, pin } = args
+  const { channelId: phoneNumberId, accessToken, pin, messagingProduct } = args
   const url = `${META_API_BASE}/${phoneNumberId}/register`
   const response = await fetch(url, {
     method: 'POST',
@@ -131,7 +173,7 @@ export async function registerPhoneNumber(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({ messaging_product: 'whatsapp', pin }),
+    body: JSON.stringify({ messaging_product: messagingProduct, pin }),
   })
 
   if (response.ok) {
@@ -216,7 +258,9 @@ export async function getSubscribedApps(
 // ============================================================
 
 export interface SendTextMessageArgs {
-  phoneNumberId: string
+  messagingProduct: MessagingProduct
+  /** phone_number_id for whatsapp, ig_user_id for instagram. */
+  channelId: string
   accessToken: string
   to: string
   text: string
@@ -232,18 +276,16 @@ export interface SendTextMessageArgs {
 export async function sendTextMessage(
   args: SendTextMessageArgs
 ): Promise<MetaSendResult> {
-  const { phoneNumberId, accessToken, to, text, contextMessageId } = args
-  const url = `${META_API_BASE}/${phoneNumberId}/messages`
-  const body: Record<string, unknown> = {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to,
+  const { channelId, accessToken, to, text, contextMessageId, messagingProduct } = args
+  const payload: Record<string, unknown> = {
     type: 'text',
     text: { body: text },
   }
   if (contextMessageId) {
-    body.context = { message_id: contextMessageId }
+    payload.context = { message_id: contextMessageId }
   }
+  const body = buildMessagingBody(messagingProduct, to, payload)
+  const url = getMessagesEndpoint(messagingProduct, channelId)
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -262,7 +304,9 @@ export async function sendTextMessage(
 export type MediaKind = 'image' | 'video' | 'document' | 'audio'
 
 export interface SendMediaMessageArgs {
-  phoneNumberId: string
+  messagingProduct: MessagingProduct
+  /** phone_number_id for whatsapp, ig_user_id for instagram. */
+  channelId: string
   accessToken: string
   to: string
   kind: MediaKind
@@ -290,9 +334,8 @@ export interface SendMediaMessageArgs {
 export async function sendMediaMessage(
   args: SendMediaMessageArgs,
 ): Promise<MetaSendResult> {
-  const { phoneNumberId, accessToken, to, kind, link, caption, filename, contextMessageId } = args
+  const { channelId, accessToken, to, kind, link, caption, filename, contextMessageId, messagingProduct } = args
   if (!link) throw new Error('sendMediaMessage requires a link.')
-  const url = `${META_API_BASE}/${phoneNumberId}/messages`
 
   // Audio accepts neither caption nor filename per Meta's spec — adding
   // either yields a 400. image/video/document accept a caption; only
@@ -301,15 +344,14 @@ export async function sendMediaMessage(
   if (caption && kind !== 'audio') media.caption = caption
   if (kind === 'document' && filename) media.filename = filename
 
-  const body: Record<string, unknown> = {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to,
+  const payload: Record<string, unknown> = {
     type: kind,
     [kind]: media,
   }
-  if (contextMessageId) body.context = { message_id: contextMessageId }
+  if (contextMessageId) payload.context = { message_id: contextMessageId }
 
+  const body = buildMessagingBody(messagingProduct, to, payload)
+  const url = getMessagesEndpoint(messagingProduct, channelId)
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -332,7 +374,9 @@ import {
 } from './template-send-builder'
 
 export interface SendTemplateMessageArgs {
-  phoneNumberId: string
+  messagingProduct: MessagingProduct
+  /** phone_number_id for whatsapp, ig_user_id for instagram. */
+  channelId: string
   accessToken: string
   to: string
   templateName: string
@@ -376,8 +420,11 @@ export interface SendTemplateMessageArgs {
 export async function sendTemplateMessage(
   args: SendTemplateMessageArgs
 ): Promise<MetaSendResult> {
+  if (args.messagingProduct === 'instagram') {
+    throw new UnsupportedChannelError('instagram', 'template', "Meta's Instagram API does not expose template sends.")
+  }
   const {
-    phoneNumberId,
+    channelId,
     accessToken,
     to,
     templateName,
@@ -386,8 +433,8 @@ export async function sendTemplateMessage(
     template,
     messageParams,
     contextMessageId,
+    messagingProduct,
   } = args
-  const url = `${META_API_BASE}/${phoneNumberId}/messages`
 
   const templatePayload: Record<string, unknown> = {
     name: templateName,
@@ -417,17 +464,16 @@ export async function sendTemplateMessage(
     ]
   }
 
-  const body: Record<string, unknown> = {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to,
+  const payload: Record<string, unknown> = {
     type: 'template',
     template: templatePayload,
   }
   if (contextMessageId) {
-    body.context = { message_id: contextMessageId }
+    payload.context = { message_id: contextMessageId }
   }
 
+  const body = buildMessagingBody(messagingProduct, to, payload)
+  const url = getMessagesEndpoint(messagingProduct, channelId)
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -664,7 +710,9 @@ export async function deleteMessageTemplate(
 // ============================================================
 
 export interface SendReactionMessageArgs {
-  phoneNumberId: string
+  messagingProduct: MessagingProduct
+  /** phone_number_id for whatsapp, ig_user_id for instagram. */
+  channelId: string
   accessToken: string
   to: string
   /** Meta's message_id of the message being reacted to. */
@@ -680,21 +728,22 @@ export interface SendReactionMessageArgs {
 export async function sendReactionMessage(
   args: SendReactionMessageArgs
 ): Promise<MetaSendResult> {
-  const { phoneNumberId, accessToken, to, targetMessageId, emoji } = args
-  const url = `${META_API_BASE}/${phoneNumberId}/messages`
+  if (args.messagingProduct === 'instagram') {
+    throw new UnsupportedChannelError('instagram', 'reaction', "Meta's Instagram API does not expose reactions.")
+  }
+  const { channelId, accessToken, to, targetMessageId, emoji, messagingProduct } = args
+  const body = buildMessagingBody(messagingProduct, to, {
+    type: 'reaction',
+    reaction: { message_id: targetMessageId, emoji },
+  })
+  const url = getMessagesEndpoint(messagingProduct, channelId)
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to,
-      type: 'reaction',
-      reaction: { message_id: targetMessageId, emoji },
-    }),
+    body: JSON.stringify(body),
   })
   if (!response.ok) {
     await throwMetaError(response, `Meta API error: ${response.status}`)
@@ -740,7 +789,9 @@ export interface InteractiveButton {
 }
 
 export interface SendInteractiveButtonsArgs {
-  phoneNumberId: string
+  messagingProduct: MessagingProduct
+  /** phone_number_id for whatsapp, ig_user_id for instagram. */
+  channelId: string
   accessToken: string
   to: string
   /** The body text — what the customer reads above the buttons. */
@@ -766,9 +817,13 @@ export interface SendInteractiveButtonsArgs {
 export async function sendInteractiveButtons(
   args: SendInteractiveButtonsArgs
 ): Promise<MetaSendResult> {
+  if (args.messagingProduct === 'instagram') {
+    throw new UnsupportedChannelError('instagram', 'interactive', "Meta's Instagram API does not expose interactive button messages.")
+  }
   const {
-    phoneNumberId, accessToken, to,
+    channelId, accessToken, to,
     bodyText, headerText, footerText, buttons, contextMessageId,
+    messagingProduct,
   } = args
   validateInteractiveBody(bodyText)
   validateInteractiveHeaderFooter(headerText, footerText)
@@ -800,16 +855,14 @@ export async function sendInteractiveButtons(
   if (headerText) interactive.header = { type: 'text', text: headerText }
   if (footerText) interactive.footer = { text: footerText }
 
-  const body: Record<string, unknown> = {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to,
+  const payload: Record<string, unknown> = {
     type: 'interactive',
     interactive,
   }
-  if (contextMessageId) body.context = { message_id: contextMessageId }
+  if (contextMessageId) payload.context = { message_id: contextMessageId }
 
-  const url = `${META_API_BASE}/${phoneNumberId}/messages`
+  const body = buildMessagingBody(messagingProduct, to, payload)
+  const url = getMessagesEndpoint(messagingProduct, channelId)
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -841,7 +894,9 @@ export interface InteractiveListSection {
 }
 
 export interface SendInteractiveListArgs {
-  phoneNumberId: string
+  messagingProduct: MessagingProduct
+  /** phone_number_id for whatsapp, ig_user_id for instagram. */
+  channelId: string
   accessToken: string
   to: string
   bodyText: string
@@ -866,9 +921,13 @@ export interface SendInteractiveListArgs {
 export async function sendInteractiveList(
   args: SendInteractiveListArgs
 ): Promise<MetaSendResult> {
+  if (args.messagingProduct === 'instagram') {
+    throw new UnsupportedChannelError('instagram', 'interactive', "Meta's Instagram API does not expose interactive list messages.")
+  }
   const {
-    phoneNumberId, accessToken, to,
+    channelId, accessToken, to,
     bodyText, buttonLabel, headerText, footerText, sections, contextMessageId,
+    messagingProduct,
   } = args
   validateInteractiveBody(bodyText)
   validateInteractiveHeaderFooter(headerText, footerText)
@@ -932,16 +991,14 @@ export async function sendInteractiveList(
   if (headerText) interactive.header = { type: 'text', text: headerText }
   if (footerText) interactive.footer = { text: footerText }
 
-  const body: Record<string, unknown> = {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to,
+  const payload: Record<string, unknown> = {
     type: 'interactive',
     interactive,
   }
-  if (contextMessageId) body.context = { message_id: contextMessageId }
+  if (contextMessageId) payload.context = { message_id: contextMessageId }
 
-  const url = `${META_API_BASE}/${phoneNumberId}/messages`
+  const body = buildMessagingBody(messagingProduct, to, payload)
+  const url = getMessagesEndpoint(messagingProduct, channelId)
   const response = await fetch(url, {
     method: 'POST',
     headers: {

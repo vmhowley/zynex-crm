@@ -5,10 +5,9 @@ import { MessageSquare, ArrowLeft } from "lucide-react";
 import { useTranslations } from "@/hooks/use-translations";
 
 export default function TroubleshootingPage() {
-  const { t } = useTranslations();
-  const isEn = t("auth.login") !== "Iniciar Sesión";
+  const { t, locale } = useTranslations();
 
-  const content = isEn ? {
+  const content = locale === 'en' ? {
     title: "Troubleshooting",
     subtitle: "Solutions to common issues you might encounter.",
     sections: [
@@ -45,7 +44,7 @@ export default function TroubleshootingPage() {
             <span className="text-xl font-bold">Zynex CRM</span>
           </Link>
           <Link href="/pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground">
-            {isEn ? "Pricing" : "Precios"}
+            {locale === 'en' ? "Pricing" : "Precios"}
           </Link>
         </div>
       </header>

@@ -29,7 +29,6 @@ function SignupPageInner() {
   const searchParams = useSearchParams();
   const inviteToken = searchParams.get("invite");
   const { t } = useTranslations();
-  const isEn = t("auth.login") !== "Iniciar Sesión";
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -45,12 +44,12 @@ function SignupPageInner() {
     setError(null);
 
     if (password !== confirmPassword) {
-      setError(isEn ? "Passwords do not match" : "Las contraseñas no coinciden");
+      setError(t("auth_passwordsDontMatch"));
       return;
     }
 
     if (password.length < 6) {
-      setError(isEn ? "Password must be at least 6 characters" : "La contraseña debe tener al menos 6 caracteres");
+      setError(t("auth_passwordTooShort"));
       return;
     }
 
@@ -90,12 +89,10 @@ function SignupPageInner() {
               <CheckCircle className="h-6 w-6 text-primary" />
             </div>
             <CardTitle className="text-xl text-foreground">
-              {isEn ? "Check your email" : "Revisa tu correo"}
+              {t("auth_checkEmail")}
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              {isEn 
-                ? `We sent a confirmation link to ${email}. Check your inbox and click the link to verify your account.`
-                : `Te enviamos un enlace de confirmación a ${email}. Revisa tu bandeja de entrada y haz clic en el enlace para verificar tu cuenta.`}
+              {t("auth_confirmationEmail", { email })}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -110,7 +107,7 @@ function SignupPageInner() {
                 variant="outline"
                 className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
               >
-                {isEn ? "Back to sign in" : "Volver a iniciar sesión"}
+                {t("auth_backToSignIn")}
               </Button>
             </Link>
           </CardContent>
@@ -132,13 +129,13 @@ function SignupPageInner() {
           </div>
           <CardTitle className="text-xl text-foreground">
             {inviteToken 
-              ? (isEn ? "Create account and join" : "Crear cuenta y unirse") 
-              : (isEn ? "Create account" : "Crear cuenta")}
+              ? t("auth_createAccountAndJoin")
+              : t("auth_createAccount")}
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             {inviteToken
-              ? (isEn ? "Verify your email and accept the invitation to join your team." : "Verifica tu correo y acepta la invitación para unirte a tu equipo.")
-              : (isEn ? "Get started with Zynex CRM" : "Comienza con Zynex CRM")}
+              ? t("auth_verifyEmailAndAccept")
+              : t("auth_getStartedZynex")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -151,7 +148,7 @@ function SignupPageInner() {
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="fullName" className="text-muted-foreground">
-                {t("settings.fullName")}
+                {t("settings_fullName")}
               </Label>
               <Input
                 id="fullName"
@@ -166,7 +163,7 @@ function SignupPageInner() {
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="email" className="text-muted-foreground">
-                {t("auth.email")}
+                {t("auth_email")}
               </Label>
               <Input
                 id="email"
@@ -181,12 +178,12 @@ function SignupPageInner() {
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="password" className="text-muted-foreground">
-                {t("auth.password")}
+                {t("auth_password")}
               </Label>
               <Input
                 id="password"
                 type="password"
-                placeholder={isEn ? "At least 6 characters" : "Al menos 6 caracteres"}
+                placeholder={t("auth_atLeast6Chars")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -196,12 +193,12 @@ function SignupPageInner() {
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="confirmPassword" className="text-muted-foreground">
-                {t("auth.confirmPassword")}
+                {t("auth_confirmPassword")}
               </Label>
               <Input
                 id="confirmPassword"
                 type="password"
-                placeholder={isEn ? "Repeat your password" : "Repite tu contraseña"}
+                placeholder={t("auth_repeatPassword")}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
@@ -214,12 +211,12 @@ function SignupPageInner() {
               disabled={loading}
               className="mt-2 h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
-              {loading ? (isEn ? "Creating account..." : "Creando cuenta...") : t("auth.createAccount")}
+              {loading ? t("auth_creatingAccount") : t("auth_createAccount")}
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            {t("auth.haveAccount")}{" "}
+            {t("auth_haveAccount")}{" "}
             <Link
               href={
                 inviteToken
@@ -228,7 +225,7 @@ function SignupPageInner() {
               }
               className="text-primary hover:text-primary/80"
             >
-              {t("auth.signIn")}
+              {t("auth_signIn")}
             </Link>
           </p>
         </CardContent>

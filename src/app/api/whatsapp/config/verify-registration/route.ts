@@ -102,7 +102,7 @@ export async function GET() {
   // 1. Phone metadata
   try {
     await verifyPhoneNumber({
-      phoneNumberId: config.phone_number_id,
+      phoneNumberId: config.channel_id,
       accessToken,
     })
     checks.phone_metadata_ok = true

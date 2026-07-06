@@ -35,7 +35,7 @@ interface PaymentRequest {
 
 export default function AdminPaymentsPage() {
   const { t } = useTranslations();
-  const isEn = t("auth.login") !== "Iniciar Sesión";
+  const isEn = t("auth_login") !== "Iniciar Sesión";
   const supabase = createClient();
   const router = useRouter();
   const [payments, setPayments] = useState<PaymentRequest[]>([]);
@@ -100,7 +100,7 @@ export default function AdminPaymentsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{t("admin.pendingPayments")}</h1>
+          <h1 className="text-2xl font-bold">{t("admin_pendingPayments")}</h1>
           <p className="text-muted-foreground">
             Aprobar o rechazar solicitudes de pago de clientes
           </p>

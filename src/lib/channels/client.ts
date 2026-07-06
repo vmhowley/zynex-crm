@@ -4,7 +4,16 @@
  */
 
 import type { ChannelType } from '@/types/channel'
-import { sendTextMessage, sendMediaMessage, sendTemplateMessage, type SendTextMessageArgs, type SendMediaMessageArgs, type SendTemplateMessageArgs, type MediaKind } from '../whatsapp/meta-api'
+import {
+  sendTextMessage,
+  sendMediaMessage,
+  sendTemplateMessage,
+  UnsupportedChannelError,
+  type SendTextMessageArgs,
+  type SendMediaMessageArgs,
+  type SendTemplateMessageArgs,
+  type MediaKind,
+} from '../whatsapp/meta-api'
 
 export interface ChannelClient {
   /** The channel type this client handles */
@@ -58,24 +67,27 @@ class WhatsAppChannelClient implements ChannelClient {
     this.config = config
   }
 
-  async sendText(args: Omit<SendTextMessageArgs, 'phoneNumberId'> & { recipientId: string }) {
+  async sendText(args: Omit<SendTextMessageArgs, 'phoneNumberId' | 'messagingProduct' | 'channelId'> & { recipientId: string }) {
     return sendTextMessage({
       ...args,
-      phoneNumberId: this.config.channelId,
+      channelId: this.config.channelId,
+      messagingProduct: 'whatsapp',
     })
   }
 
-  async sendMedia(args: Omit<SendMediaMessageArgs, 'phoneNumberId'> & { recipientId: string; kind: MediaKind }) {
+  async sendMedia(args: Omit<SendMediaMessageArgs, 'phoneNumberId' | 'messagingProduct' | 'channelId'> & { recipientId: string; kind: MediaKind }) {
     return sendMediaMessage({
       ...args,
-      phoneNumberId: this.config.channelId,
+      channelId: this.config.channelId,
+      messagingProduct: 'whatsapp',
     })
   }
 
-  async sendTemplate(args: Omit<SendTemplateMessageArgs, 'phoneNumberId'> & { recipientId: string }) {
+  async sendTemplate(args: Omit<SendTemplateMessageArgs, 'phoneNumberId' | 'messagingProduct' | 'channelId'> & { recipientId: string }) {
     return sendTemplateMessage({
       ...args,
-      phoneNumberId: this.config.channelId,
+      channelId: this.config.channelId,
+      messagingProduct: 'whatsapp',
     })
   }
 }
@@ -92,27 +104,35 @@ class InstagramChannelClient implements ChannelClient {
     this.config = config
   }
 
-  async sendText(args: Omit<SendTextMessageArgs, 'phoneNumberId'> & { recipientId: string }) {
+  async sendText(args: Omit<SendTextMessageArgs, 'phoneNumberId' | 'messagingProduct' | 'channelId'> & { recipientId: string }) {
     // Instagram uses the same Graph API as WhatsApp but with IG business account
     // The messaging_product is 'instagram' instead of 'whatsapp'
     // For now, we use the same API structure - can be extended for IG-specific features
     return sendTextMessage({
       ...args,
-      phoneNumberId: this.config.channelId,
+      channelId: this.config.channelId,
+      messagingProduct: 'instagram',
     })
   }
 
-  async sendMedia(args: Omit<SendMediaMessageArgs, 'phoneNumberId'> & { recipientId: string; kind: MediaKind }) {
+  async sendMedia(args: Omit<SendMediaMessageArgs, 'phoneNumberId' | 'messagingProduct' | 'channelId'> & { recipientId: string; kind: MediaKind }) {
     return sendMediaMessage({
       ...args,
-      phoneNumberId: this.config.channelId,
+      channelId: this.config.channelId,
+      messagingProduct: 'instagram',
     })
   }
 
-  async sendTemplate(args: Omit<SendTemplateMessageArgs, 'phoneNumberId'> & { recipientId: string }): Promise<{ messageId: string }> {
-    // Instagram doesn't support templates in the same way as WhatsApp
-    // This will need IG-specific implementation
-    throw new Error('Template messages are not supported on Instagram')
+  async sendTemplate(args: Omit<SendTemplateMessageArgs, 'phoneNumberId' | 'messagingProduct' | 'channelId'> & { recipientId: string }): Promise<{ messageId: string }> {
+    // The helper itself throws UnsupportedChannelError when given
+    // messagingProduct='instagram' — the route layer surfaces that as
+    // a 422 to the UI. Going through the helper (rather than throwing
+    // here) keeps the unsupported-operation rules defined in ONE place.
+    return sendTemplateMessage({
+      ...args,
+      channelId: this.config.channelId,
+      messagingProduct: 'instagram',
+    })
   }
 }
 
@@ -128,26 +148,45 @@ class MessengerChannelClient implements ChannelClient {
     this.config = config
   }
 
-  async sendText(args: Omit<SendTextMessageArgs, 'phoneNumberId'> & { recipientId: string }) {
-    // Messenger uses page_id instead of phone_number_id
-    // The API endpoint is different: /me/messages
-    // For now, we use a similar structure - can be extended for Messenger-specific features
-    return sendTextMessage({
-      ...args,
-      phoneNumberId: this.config.channelId,
-    })
+  async sendText(
+    args: Omit<SendTextMessageArgs, 'phoneNumberId' | 'messagingProduct' | 'channelId'> & {
+      recipientId: string
+    },
+  ): Promise<{ messageId: string }> {
+    // Messenger uses page_id instead of phone_number_id and the API
+    // endpoint is /me/messages — a separate outbound path that lands
+    // in Step 2 of the multi-channel rollout. Until then, surface the
+    // missing implementation via the channel-op error contract so the
+    // route layer can return a clean 422 instead of a misleading 502.
+    throw new UnsupportedChannelError(
+      'messenger',
+      'text',
+      `Meta's Messenger API is not yet wired into the outbound send path (recipientId=${args.recipientId}).`,
+    )
   }
 
-  async sendMedia(args: Omit<SendMediaMessageArgs, 'phoneNumberId'> & { recipientId: string; kind: MediaKind }) {
-    return sendMediaMessage({
-      ...args,
-      phoneNumberId: this.config.channelId,
-    })
+  async sendMedia(
+    args: Omit<SendMediaMessageArgs, 'phoneNumberId' | 'messagingProduct' | 'channelId'> & {
+      recipientId: string
+      kind: MediaKind
+    },
+  ): Promise<{ messageId: string }> {
+    throw new UnsupportedChannelError(
+      'messenger',
+      'media',
+      `Meta's Messenger API is not yet wired into the outbound send path (recipientId=${args.recipientId}, kind=${args.kind}).`,
+    )
   }
 
-  async sendTemplate(args: Omit<SendTemplateMessageArgs, 'phoneNumberId'> & { recipientId: string }): Promise<{ messageId: string }> {
-    // Messenger uses message templates (structured messages) differently
-    // This will need FB-specific implementation
-    throw new Error('Template messages are not fully supported on Messenger yet')
+  async sendTemplate(
+    args: Omit<SendTemplateMessageArgs, 'phoneNumberId' | 'messagingProduct' | 'channelId'> & {
+      recipientId: string
+    },
+  ): Promise<{ messageId: string }> {
+    throw new UnsupportedChannelError(
+      'messenger',
+      'template',
+      `Meta's Messenger API is not yet wired into the outbound send path (recipientId=${args.recipientId}).`,
+    )
   }
 }

@@ -60,7 +60,7 @@ const TEMPLATE_ICON: Record<TemplateSlug, typeof Zap> = {
 
 export default function AutomationsPage() {
   const { t } = useTranslations();
-  const isEn = t("auth.login") !== "Iniciar Sesión";
+  const isEn = t("auth_login") !== "Iniciar Sesión";
   const router = useRouter()
   const canCreate = useCan("send-messages")
   const [automations, setAutomations] = useState<Automation[] | null>(null)
@@ -163,7 +163,7 @@ export default function AutomationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{t("automations.title")}</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t("automations_title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Build workflows that react to WhatsApp® events automatically.
           </p>

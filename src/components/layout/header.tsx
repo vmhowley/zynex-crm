@@ -29,29 +29,18 @@ interface HeaderProps {
 export function Header({ onOpenSidebar }: HeaderProps) {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
-  const { t } = useTranslations();
-  const isEn = t("auth.login") !== "Iniciar Sesión";
-  
-  const pageTitles: Record<string, string> = isEn ? {
-    "/dashboard": "Dashboard",
-    "/inbox": "Inbox",
-    "/notifications": "Notifications",
-    "/contacts": "Contacts",
-    "/pipelines": "Pipelines",
-    "/broadcasts": "Broadcasts",
-    "/automations": "Automations",
-    "/flows": "Flows",
-    "/settings": "Settings",
-  } : {
-    "/dashboard": "Panel",
-    "/inbox": "Bandeja de Entrada",
-    "/notifications": "Notificaciones",
-    "/contacts": "Contactos",
-    "/pipelines": "Pipelines",
-    "/broadcasts": "Broadcasts",
-    "/automations": "Automatizaciones",
-    "/flows": "Flujos",
-    "/settings": "Configuración",
+  const { t, locale } = useTranslations();
+
+  const pageTitles: Record<string, string> = {
+    "/dashboard": t("nav_dashboard"),
+    "/inbox": t("nav_inbox"),
+    "/notifications": t("notifications_title"),
+    "/contacts": t("nav_contacts"),
+    "/pipelines": t("nav_pipelines"),
+    "/broadcasts": t("nav_broadcasts"),
+    "/automations": t("nav_automations"),
+    "/flows": t("nav_flows"),
+    "/settings": t("nav_settings"),
   };
 
   function getPageTitle(path: string): string {
@@ -59,7 +48,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
     const match = Object.entries(pageTitles).find(([p]) =>
       path.startsWith(p),
     );
-    return match ? match[1] : (isEn ? "Dashboard" : "Panel");
+    return match ? match[1] : t("nav_dashboard");
   }
 
   const title = getPageTitle(pathname);
@@ -133,7 +122,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             }
           >
             <User className="size-4" />
-            {t("nav.profile")}
+            {t("nav_profile")}
           </DropdownMenuItem>
           <DropdownMenuItem
             render={
@@ -144,7 +133,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             }
           >
             <SettingsIcon className="size-4" />
-            {t("nav.settings")}
+            {t("nav_settings")}
           </DropdownMenuItem>
           <DropdownMenuSeparator className="bg-border" />
           <DropdownMenuItem
@@ -152,7 +141,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
           >
             <LogOut className="size-4" />
-            {t("nav.logout")}
+            {t("nav_logout")}
           </DropdownMenuItem>
         </DropdownMenuContent>
         </DropdownMenu>

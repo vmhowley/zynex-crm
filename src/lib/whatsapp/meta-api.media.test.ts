@@ -23,7 +23,8 @@ function okFetch() {
 }
 
 const BASE = {
-  phoneNumberId: "test-phone",
+  messagingProduct: "whatsapp" as const,
+  channelId: "test-phone",
   accessToken: "test-token",
   to: "1234567890",
   link: "https://cdn.example.com/file",

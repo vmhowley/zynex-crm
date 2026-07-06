@@ -15,7 +15,8 @@ const neverFetch = () =>
   });
 
 const BASE_ARGS = {
-  phoneNumberId: "test-phone",
+  messagingProduct: "whatsapp" as const,
+  channelId: "test-phone",
   accessToken: "test-token",
   to: "1234567890",
   bodyText: "Body text",

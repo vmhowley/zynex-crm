@@ -30,11 +30,11 @@ import {
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption';
 import { supabaseAdmin } from '@/lib/flows/admin-client';
 import {
-  sanitizePhoneForMeta,
   isValidE164,
   phoneVariants,
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils';
+import { getRecipientFromContact } from '@/lib/contacts/recipient';
 import type { MessageTemplate } from '@/types';
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
 
@@ -202,16 +202,13 @@ export async function sendMessageToConversation(
   }
 
   const contact = conversation.contact;
-  if (!contact?.phone) {
-    throw new SendMessageError(
-      'bad_request',
-      'Contact phone number not found',
-      400
-    );
-  }
-
-  const sanitizedPhone = sanitizePhoneForMeta(contact.phone);
-  if (!isValidE164(sanitizedPhone)) {
+  const recipient = getRecipientFromContact(contact);
+  const isPhoneRecipient = !!contact.phone?.trim()
+  // WhatsApp uses digits-only E.164; IG/FB use opaque IDs.
+  const sanitizedPhone = isPhoneRecipient
+    ? contact.phone.trim().replace(/\D/g, '')
+    : recipient
+  if (isPhoneRecipient && !isValidE164(sanitizedPhone)) {
     throw new SendMessageError(
       'bad_request',
       'Invalid phone number format',
@@ -308,7 +305,8 @@ export async function sendMessageToConversation(
   const attempt = async (phone: string): Promise<string> => {
     if (messageType === 'template') {
       const result = await sendTemplateMessage({
-        phoneNumberId: config.channel_id,
+        channelId: config.channel_id,
+        messagingProduct: channel,
         accessToken,
         to: phone,
         templateName: templateName!,
@@ -322,7 +320,8 @@ export async function sendMessageToConversation(
     }
     if (isMediaKind) {
       const result = await sendMediaMessage({
-        phoneNumberId: config.channel_id,
+        channelId: config.channel_id,
+        messagingProduct: channel,
         accessToken,
         to: phone,
         kind: messageType as MediaKind,
@@ -334,7 +333,8 @@ export async function sendMessageToConversation(
       return result.messageId;
     }
     const result = await sendTextMessage({
-      phoneNumberId: config.channel_id,
+      channelId: config.channel_id,
+      messagingProduct: channel,
       accessToken,
       to: phone,
       text: contentText!,

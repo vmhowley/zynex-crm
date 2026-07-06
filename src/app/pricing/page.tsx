@@ -34,7 +34,6 @@ interface Plan {
 
 export default function PricingPage() {
   const { t } = useTranslations();
-  const isEn = t("auth.login") !== "Iniciar Sesión";
   
   const supabase = createClient();
   const router = useRouter();

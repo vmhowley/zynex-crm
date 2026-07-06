@@ -5,10 +5,9 @@ import { MessageSquare, ArrowLeft, ArrowRight } from "lucide-react";
 import { useTranslations } from "@/hooks/use-translations";
 
 export default function SubscriptionDocPage() {
-  const { t } = useTranslations();
-  const isEn = t("auth.login") !== "Iniciar Sesión";
+  const { t, locale } = useTranslations();
 
-  const content = isEn ? {
+  const content = locale === 'en' ? {
     title: "Subscription & Billing",
     subtitle: "Manage your plan, payments and billing information.",
     sections: [
@@ -47,7 +46,7 @@ export default function SubscriptionDocPage() {
             <span className="text-xl font-bold">Zynex CRM</span>
           </Link>
           <Link href="/pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground">
-            {isEn ? "Pricing" : "Precios"}
+            {locale === 'en' ? "Pricing" : "Precios"}
           </Link>
         </div>
       </header>

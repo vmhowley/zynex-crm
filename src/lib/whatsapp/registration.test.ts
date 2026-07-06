@@ -31,7 +31,8 @@ describe('registerPhoneNumber', () => {
 
   it('POSTs to /{phone_number_id}/register with messaging_product + pin', async () => {
     const result = await registerPhoneNumber({
-      phoneNumberId: 'PNID_123',
+      messagingProduct: 'whatsapp',
+      channelId: 'PNID_123',
       accessToken: 'tok',
       pin: '123456',
     });
@@ -60,7 +61,8 @@ describe('registerPhoneNumber', () => {
       }),
     );
     const result = await registerPhoneNumber({
-      phoneNumberId: 'PNID_123',
+      messagingProduct: 'whatsapp',
+      channelId: 'PNID_123',
       accessToken: 'tok',
       pin: '123456',
     });
@@ -79,7 +81,8 @@ describe('registerPhoneNumber', () => {
     );
     await expect(
       registerPhoneNumber({
-        phoneNumberId: 'P',
+        messagingProduct: 'whatsapp',
+        channelId: 'P',
         accessToken: 't',
         pin: '000000',
       }),
@@ -94,7 +97,8 @@ describe('registerPhoneNumber', () => {
     );
     await expect(
       registerPhoneNumber({
-        phoneNumberId: 'P',
+        messagingProduct: 'whatsapp',
+        channelId: 'P',
         accessToken: 't',
         pin: '123456',
       }),

@@ -18,7 +18,6 @@ import { useTranslations } from "@/hooks/use-translations";
 
 export default function ForgotPasswordPage() {
   const { t } = useTranslations();
-  const isEn = t("auth.login") !== "Iniciar Sesión";
   
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -54,12 +53,10 @@ export default function ForgotPasswordPage() {
               <CheckCircle className="h-6 w-6 text-primary" />
             </div>
             <CardTitle className="text-xl text-foreground">
-              {isEn ? "Check your email" : "Revisa tu correo"}
+              {t("auth_checkEmail")}
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              {isEn 
-                ? `We sent a recovery link to ${email}. Check your inbox.`
-                : `Te enviamos un enlace de recuperación a ${email}. Revisa tu bandeja de entrada.`}
+              {t("auth_recoveryEmail", { email })}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -68,7 +65,7 @@ export default function ForgotPasswordPage() {
                 variant="outline"
                 className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
               >
-                {isEn ? "Back to sign in" : "Volver a iniciar sesión"}
+                {t("auth_backToSignIn")}
               </Button>
             </Link>
           </CardContent>
@@ -85,12 +82,10 @@ export default function ForgotPasswordPage() {
             <MessageSquare className="h-6 w-6 text-primary" />
           </div>
           <CardTitle className="text-xl text-foreground">
-            {isEn ? "Reset password" : "Restablecer contraseña"}
+            {t("auth_resetPassword")}
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-            {isEn 
-              ? "Enter your email and we'll send you a link to reset it"
-              : "Ingresa tu correo y te enviaremos un enlace para restablecerla"}
+            {t("auth_enterEmailDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -103,7 +98,7 @@ export default function ForgotPasswordPage() {
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="email" className="text-muted-foreground">
-                {t("auth.email")}
+                {t("auth_email")}
               </Label>
               <Input
                 id="email"
@@ -121,7 +116,7 @@ export default function ForgotPasswordPage() {
               disabled={loading}
               className="mt-2 h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
-              {loading ? (isEn ? "Sending..." : "Enviando...") : (isEn ? "Send link" : "Enviar enlace")}
+              {loading ? t("auth_sending") : t("auth_sendLink")}
             </Button>
           </form>
 
@@ -130,7 +125,7 @@ export default function ForgotPasswordPage() {
             className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
-            {isEn ? "Back to sign in" : "Volver a iniciar sesión"}
+            {t("auth_backToSignIn")}
           </Link>
         </CardContent>
       </Card>

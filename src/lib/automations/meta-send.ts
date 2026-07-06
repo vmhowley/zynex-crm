@@ -1,11 +1,11 @@
 import { sendTextMessage, sendTemplateMessage } from '@/lib/whatsapp/meta-api'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import {
-  sanitizePhoneForMeta,
   isValidE164,
   phoneVariants,
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils'
+import { getRecipientFromContact } from '@/lib/contacts/recipient'
 import { supabaseAdmin } from './admin-client'
 
 // ------------------------------------------------------------
@@ -70,23 +70,29 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
   // new tenancy column.
   const { data: contact, error: contactErr } = await db
     .from('contacts')
-    .select('id, phone')
+    .select('id, phone, recipient_id')
     .eq('id', input.contactId)
     .eq('account_id', input.accountId)
     .maybeSingle()
-  if (contactErr || !contact?.phone) {
+  if (contactErr || !contact) {
     throw new Error('contact not found for this account')
   }
 
-  const sanitized = sanitizePhoneForMeta(contact.phone)
-  if (!isValidE164(sanitized)) {
+  const recipient = getRecipientFromContact(contact)
+  const isPhoneRecipient = !!contact.phone?.trim()
+  // WhatsApp uses digits-only E.164; IG/FB use opaque IDs.
+  const sanitized = isPhoneRecipient
+    ? contact.phone.trim().replace(/\D/g, '')
+    : recipient
+  if (isPhoneRecipient && !isValidE164(sanitized)) {
     throw new Error(`contact phone invalid: ${contact.phone}`)
   }
 
   const { data: config, error: configErr } = await db
-    .from('whatsapp_config')
-    .select('*')
+    .from('channel_configs')
+    .select('channel_id, channel, access_token')
     .eq('account_id', input.accountId)
+    .eq('channel', 'whatsapp')
     .single()
   if (configErr || !config) {
     throw new Error('WhatsApp not configured for this account')
@@ -97,7 +103,8 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
   const attempt = async (phone: string): Promise<string> => {
     if (input.kind === 'template') {
       const r = await sendTemplateMessage({
-        phoneNumberId: config.phone_number_id,
+        channelId: config.channel_id,
+        messagingProduct: 'whatsapp',
         accessToken,
         to: phone,
         templateName: input.templateName,
@@ -107,7 +114,8 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
       return r.messageId
     }
     const r = await sendTextMessage({
-      phoneNumberId: config.phone_number_id,
+      channelId: config.channel_id,
+      messagingProduct: 'whatsapp',
       accessToken,
       to: phone,
       text: input.text,

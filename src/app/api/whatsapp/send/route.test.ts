@@ -42,12 +42,13 @@ function makeSupabaseMock() {
           // Once created this request, a by-id reload returns it (with
           // its contact); otherwise fall back to the canned existing row.
           return { data: createdConversation ?? existingConversation, error: null }
-        case 'whatsapp_config':
+        case 'channel_configs':
           return {
             data: {
               id: 'cfg-1',
               account_id: 'acct-1',
-              phone_number_id: 'PNID-1',
+              channel: 'whatsapp',
+              channel_id: 'PNID-1',
               access_token: 'enc-token',
             },
             error: null,
