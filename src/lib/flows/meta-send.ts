@@ -344,6 +344,13 @@ async function sendInteractiveViaMeta(
 ): Promise<{ whatsapp_message_id: string }> {
   const db = supabaseAdmin()
 
+  console.log('[flows] sendInteractiveViaMeta input', {
+    contactId: input.contactId,
+    accountId: input.accountId,
+    conversationId: input.conversationId,
+    kind: input.kind,
+  })
+
   // Scope the contact + whatsapp_config lookups by account_id —
   // same defense-in-depth rationale as automations/meta-send.ts.
   // Migration 017 moved both tables to account-scoped tenancy.
@@ -354,6 +361,11 @@ async function sendInteractiveViaMeta(
     .eq('account_id', input.accountId)
     .maybeSingle()
   if (contactErr || !contact) {
+    console.error('[flows] contact lookup failed', {
+      contactId: input.contactId,
+      accountId: input.accountId,
+      contactErr,
+    })
     throw new Error('contact not found for this account')
   }
 

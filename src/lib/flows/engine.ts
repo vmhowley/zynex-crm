@@ -358,6 +358,12 @@ async function sendButtonsAndSuspend(
   node: FlowNodeRow,
 ): Promise<{ outcome: "advanced"; node_key: string }> {
   const cfg = node.config as unknown as SendButtonsNodeConfig;
+  console.log('[flows] sendButtonsAndSuspend', {
+    runId: run.id,
+    contactId: run.contact_id,
+    conversationId: run.conversation_id,
+    nodeKey: node.node_key,
+  });
   const { whatsapp_message_id } = await engineSendInteractiveButtons({
     accountId: run.account_id,
     userId: run.user_id,
