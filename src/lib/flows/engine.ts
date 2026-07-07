@@ -389,6 +389,7 @@ async function sendButtonsAndSuspend(
     .from("flow_runs")
     .update({
       last_prompt_message_id: (msg as { id: string } | null)?.id ?? null,
+      current_node_key: node.node_key,
     })
     .eq("id", run.id);
   return { outcome: "advanced", node_key: node.node_key };
@@ -431,6 +432,7 @@ async function sendListAndSuspend(
     .from("flow_runs")
     .update({
       last_prompt_message_id: (msg as { id: string } | null)?.id ?? null,
+      current_node_key: node.node_key,
     })
     .eq("id", run.id);
   return { outcome: "advanced", node_key: node.node_key };
@@ -893,6 +895,14 @@ async function handleReplyForActiveRun(
   message: ParsedInbound,
   nodes: Map<string, FlowNodeRow>,
 ): Promise<DispatchInboundResult> {
+  console.log('[flows] handleReplyForActiveRun', {
+    runId: run.id,
+    currentNodeKey: run.current_node_key,
+    messageKind: message.kind,
+    replyId: message.kind === 'interactive_reply' ? message.reply_id : null,
+    text: message.kind === 'text' ? message.text : null,
+    nodeTypeAtRun: nodes.get(run.current_node_key ?? '')?.node_type,
+  });
   // Note: we intentionally do NOT persist the raw customer text. A
   // `collect_input` prompt that asks "what's your card number?" would
   // otherwise leave the PAN sitting in flow_run_events.payload forever,
@@ -900,7 +910,7 @@ async function handleReplyForActiveRun(
   // table. Length is enough for "did they actually reply?" debugging;
   // for the captured value itself, the `node_entered` event already
   // records `captured_key` + `captured_length` after the var is stored.
-  await logEvent(db, run.id, "reply_received", run.current_node_key, {
+  await logEvent(db, run.id, 'reply_received', run.current_node_key, {
     meta_message_id: message.meta_message_id,
     reply_kind: message.kind,
     reply_id: message.kind === "interactive_reply" ? message.reply_id : null,
