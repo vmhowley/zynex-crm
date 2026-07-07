@@ -10,6 +10,13 @@ import type { WebhookValue } from './router'
 
 /** Convert a raw DB row to a ChannelConfig. */
 function rowToConfig(data: Record<string, unknown>): ChannelConfig {
+  const rawToken = data.access_token as string
+  let access_token: string
+  try {
+    access_token = decrypt(rawToken)
+  } catch {
+    access_token = rawToken
+  }
   return {
     id: data.id as string,
     account_id: data.account_id as string,
@@ -18,7 +25,7 @@ function rowToConfig(data: Record<string, unknown>): ChannelConfig {
     channel_id: data.channel_id as string,
     waba_id: data.waba_id as string | undefined,
     ig_business_account_id: data.ig_business_account_id as string | undefined,
-    access_token: decrypt(data.access_token as string),
+    access_token,
     webhook_verify_token: data.webhook_verify_token as string | undefined,
     status: data.status as 'connected' | 'disconnected',
     connected_at: data.connected_at as string | undefined,

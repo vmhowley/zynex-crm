@@ -126,7 +126,13 @@ export async function createBroadcast(
       400
     );
   }
-  const accessToken = decrypt(config.access_token);
+  const rawToken = config.access_token
+  let accessToken: string
+  try {
+    accessToken = decrypt(rawToken)
+  } catch {
+    accessToken = rawToken
+  }
 
   // Template row (once) for header/button components; guard a
   // malformed local row rather than N identical opaque failures.

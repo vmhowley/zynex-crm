@@ -312,7 +312,9 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
 
       const { config, channel } = resolved
 
-      const decryptedAccessToken = decrypt(config.access_token)
+      // access_token is already decrypted by rowToConfig inside
+      // resolveChannelConfigFromWebhook — use it directly.
+      const accessToken = config.access_token
 
       for (let i = 0; i < value.messages.length; i++) {
         const message = value.messages[i]
@@ -328,7 +330,7 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
           // inserts that need it for NOT NULL FK compliance. Always
           // the admin who saved the channel config.
           config.user_id,
-          decryptedAccessToken,
+          accessToken,
           channel
         )
       }

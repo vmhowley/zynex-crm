@@ -235,7 +235,13 @@ export async function sendMessageToConversation(
     );
   }
 
-  const accessToken = decrypt(config.access_token);
+  const rawToken = config.access_token
+  let accessToken: string
+  try {
+    accessToken = decrypt(rawToken)
+  } catch {
+    accessToken = rawToken
+  }
 
   // Self-heal legacy CBC ciphertexts. Fire-and-forget; idempotent.
   if (isLegacyFormat(config.access_token)) {
