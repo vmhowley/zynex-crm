@@ -105,40 +105,64 @@ export async function GET(request: Request) {
       )
     }
 
-    // Fetch all whatsapp configs to check verify tokens
-    const { data: configs, error: configError } = await supabaseAdmin()
+    // Fetch WhatsApp configs from the view (for legacy verify_token)
+    const { data: waConfigs, error: waError } = await supabaseAdmin()
       .from('whatsapp_config')
       .select('id, verify_token')
 
-    if (configError || !configs) {
-      console.error('Error fetching configs for verification:', configError)
+    // Fetch all channel_configs for IG/FB webhook_verify_token
+    const { data: channelConfigs, error: channelError } = await supabaseAdmin()
+      .from('channel_configs')
+      .select('id, channel, webhook_verify_token')
+      .eq('status', 'connected')
+
+    if ((waError || !waConfigs) && (channelError || !channelConfigs)) {
+      console.error('Error fetching configs for verification:', waError, channelError)
       return NextResponse.json(
         { error: 'Verification failed' },
         { status: 403 }
       )
     }
 
-    // Check if any config's verify_token matches. Also collect the
-    // matching row so we can opportunistically upgrade its token to
-    // GCM if it was still in the legacy CBC format.
+    // Check WhatsApp configs (legacy verify_token column via view)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let matchedConfig: any = null
-    for (const config of configs) {
-      if (!config.verify_token) continue
-      try {
-        if (decrypt(config.verify_token) === verifyToken) {
-          matchedConfig = config
-          break
+    let matchedTable: 'whatsapp_config' | 'channel_configs' = 'whatsapp_config'
+
+    if (waConfigs) {
+      for (const config of waConfigs) {
+        if (!config.verify_token) continue
+        try {
+          if (decrypt(config.verify_token) === verifyToken) {
+            matchedConfig = config
+            matchedTable = 'whatsapp_config'
+            break
+          }
+        } catch {
+          // Malformed / wrong-key token row — skip it.
         }
-      } catch {
-        // Malformed / wrong-key token row — skip it and keep checking.
+      }
+    }
+
+    // Check channel_configs for IG/FB (webhook_verify_token column)
+    if (!matchedConfig && channelConfigs) {
+      for (const config of channelConfigs) {
+        if (!config.webhook_verify_token) continue
+        try {
+          if (decrypt(config.webhook_verify_token) === verifyToken) {
+            matchedConfig = config
+            matchedTable = 'channel_configs'
+            break
+          }
+        } catch {
+          // Malformed / wrong-key token row — skip it.
+        }
       }
     }
 
     if (matchedConfig) {
-      // Fire-and-forget GCM upgrade. Safe to run on every subscribe
-      // since it's a no-op once the column is already GCM.
-      if (isLegacyFormat(matchedConfig.verify_token)) {
+      // Fire-and-forget GCM upgrade for WhatsApp configs.
+      if (matchedTable === 'whatsapp_config' && isLegacyFormat(matchedConfig.verify_token)) {
         void supabaseAdmin()
           .from('whatsapp_config')
           .update({ verify_token: encrypt(verifyToken) })

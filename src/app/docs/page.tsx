@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MessageSquare, Users, Radio, Workflow, Settings, Sparkles, BarChart3, Zap, FileText, CreditCard, HelpCircle } from "lucide-react";
+import { MessageSquare, Users, Radio, Workflow, Settings, Sparkles, BarChart3, Zap, FileText, CreditCard, HelpCircle, Key } from "lucide-react";
 import { useTranslations } from "@/hooks/use-translations";
 
 export default function DocsPage() {
@@ -32,6 +32,7 @@ export default function DocsPage() {
       { title: "Templates", desc: "Create and manage WhatsApp templates", href: "/docs/templates", icon: FileText },
       { title: "AI Assistant", desc: "Generate automatic responses with AI", href: "/docs/ai-assistant", icon: Sparkles },
       { title: "Team Members", desc: "Invite your team and manage permissions", href: "/docs/members", icon: Users },
+      { title: "Public API", desc: "Drive Zynex CRM from your own scripts", href: "/docs/public-api", icon: Key },
     ],
     settings: {
       title: "Settings",
@@ -72,6 +73,7 @@ export default function DocsPage() {
       { title: "Plantillas", desc: "Crea y gestiona plantillas de WhatsApp", href: "/docs/templates", icon: FileText },
       { title: "Asistente de IA", desc: "Genera respuestas automáticas con inteligencia artificial", href: "/docs/ai-assistant", icon: Sparkles },
       { title: "Miembros del Equipo", desc: "Invita a tu equipo y gestiona permisos", href: "/docs/members", icon: Users },
+      { title: "API Pública", desc: "Controla Zynex CRM desde tus propios scripts", href: "/docs/public-api", icon: Key },
     ],
     settings: {
       title: "Configuración",

@@ -18,6 +18,7 @@ import { MembersTab } from '@/components/settings/members-tab';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import { AiConfig } from '@/components/settings/ai-config';
 import { SubscriptionPanel } from '@/components/settings/subscriptions-panel';
+import { ChannelsPanel } from '@/components/settings/channels-panel';
 import {
   resolveSection,
   type SettingsSection,
@@ -59,6 +60,7 @@ export default function SettingsPage() {
     appearance: <AppearancePanel />,
     subscription: <SubscriptionPanel />,
     whatsapp: <WhatsAppConfig />,
+    channels: <ChannelsPanel />,
     templates: <TemplateManager />,
     fields: <FieldsAndTagsPanel />,
     deals: <DealsSettings />,
