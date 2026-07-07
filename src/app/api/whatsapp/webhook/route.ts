@@ -116,10 +116,19 @@ export async function GET(request: Request) {
       .select('id, channel, webhook_verify_token')
       .eq('status', 'connected')
 
-    if ((waError || !waConfigs) && (channelError || !channelConfigs)) {
-      console.error('Error fetching configs for verification:', waError, channelError)
+    const waHasError = Boolean(waError)
+    const channelHasError = Boolean(channelError)
+    if (waHasError || channelHasError) {
+      if (waHasError) console.error('Error fetching whatsapp_config:', waError)
+      if (channelHasError) console.error('Error fetching channel_configs:', channelError)
+    }
+
+    const waEmpty = !waConfigs || waConfigs.length === 0
+    const channelEmpty = !channelConfigs || channelConfigs.length === 0
+
+    if (waEmpty && channelEmpty) {
       return NextResponse.json(
-        { error: 'Verification failed' },
+        { error: 'Verification failed — no channel configs found' },
         { status: 403 }
       )
     }
