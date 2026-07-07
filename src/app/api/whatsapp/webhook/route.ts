@@ -141,14 +141,15 @@ export async function GET(request: Request) {
     if (waConfigs) {
       for (const config of waConfigs) {
         if (!config.verify_token) continue
-        try {
-          if (decrypt(config.verify_token) === verifyToken) {
-            matchedConfig = config
-            matchedTable = 'whatsapp_config'
-            break
-          }
-        } catch {
-          // Malformed / wrong-key token row — skip it.
+        const stored = config.verify_token
+        const isEncrypted = stored.includes(':')
+        const tokenMatches = isEncrypted
+          ? decrypt(stored) === verifyToken
+          : stored === verifyToken
+        if (tokenMatches) {
+          matchedConfig = config
+          matchedTable = 'whatsapp_config'
+          break
         }
       }
     }
@@ -157,14 +158,15 @@ export async function GET(request: Request) {
     if (!matchedConfig && channelConfigs) {
       for (const config of channelConfigs) {
         if (!config.webhook_verify_token) continue
-        try {
-          if (decrypt(config.webhook_verify_token) === verifyToken) {
-            matchedConfig = config
-            matchedTable = 'channel_configs'
-            break
-          }
-        } catch {
-          // Malformed / wrong-key token row — skip it.
+        const stored = config.webhook_verify_token
+        const isEncrypted = stored.includes(':')
+        const tokenMatches = isEncrypted
+          ? decrypt(stored) === verifyToken
+          : stored === verifyToken
+        if (tokenMatches) {
+          matchedConfig = config
+          matchedTable = 'channel_configs'
+          break
         }
       }
     }
