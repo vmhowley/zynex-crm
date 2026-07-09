@@ -137,15 +137,20 @@ export async function PATCH(
       )
     }
 
+    // Gate: templates are only supported on WhatsApp in v1
     if (!isDryRun()) {
       const { data: config, error: configError } = await supabase
-        .from('whatsapp_config')
+        .from('channel_configs')
         .select('*')
         .eq('account_id', accountId)
+        .eq('channel', 'whatsapp')
         .single()
       if (configError || !config) {
         return NextResponse.json(
-          { error: 'WhatsApp not configured.' },
+          {
+            error:
+              'WhatsApp not configured. Templates are only supported on WhatsApp in v1.',
+          },
           { status: 400 },
         )
       }
@@ -277,15 +282,20 @@ export async function DELETE(
       return NextResponse.json({ error: 'Template not found.' }, { status: 404 })
     }
 
+    // Gate: templates are only supported on WhatsApp in v1
     if (existing.meta_template_id && !isDryRun()) {
       const { data: config, error: configError } = await supabase
-        .from('whatsapp_config')
+        .from('channel_configs')
         .select('*')
         .eq('account_id', accountId)
+        .eq('channel', 'whatsapp')
         .single()
       if (configError || !config || !config.waba_id) {
         return NextResponse.json(
-          { error: 'WhatsApp not configured — cannot delete on Meta.' },
+          {
+            error:
+              'WhatsApp not configured — cannot delete on Meta. Templates are only supported on WhatsApp in v1.',
+          },
           { status: 400 },
         )
       }

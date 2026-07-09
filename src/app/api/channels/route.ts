@@ -45,6 +45,7 @@ export async function GET() {
         "id, channel, channel_id, status, connected_at, ig_business_account_id",
       )
       .eq("account_id", accountId)
+      .eq("status", "connected")
       .in("channel", ["whatsapp", "instagram", "messenger"]);
 
     if (error) {

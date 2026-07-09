@@ -75,6 +75,29 @@ export function isUniqueViolation(error: unknown): boolean {
 }
 
 /**
+ * Find an existing contact in `accountId` whose external_id matches,
+ * or null. Exact match on (account_id, external_id).
+ * Used by DigitBill integration to find contacts by their external ID.
+ */
+export async function findExistingContactByExternalId(
+  db: SupabaseClient,
+  accountId: string,
+  externalId: string,
+): Promise<ExistingContact | null> {
+  if (!externalId) return null;
+
+  const { data, error } = await db
+    .from("contacts")
+    .select("*")
+    .eq("account_id", accountId)
+    .eq("external_id", externalId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as ExistingContact;
+}
+
+/**
  * De-duplicate parsed CSV rows by normalized phone, keeping the first
  * occurrence of each. Rows with an empty normalized phone are dropped
  * (they can't be a valid contact). Returns the unique rows plus the

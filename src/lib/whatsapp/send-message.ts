@@ -21,22 +21,46 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import {
-  sendTextMessage,
-  sendTemplateMessage,
-  sendMediaMessage,
-  type MediaKind,
-} from '@/lib/whatsapp/meta-api';
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption';
 import { supabaseAdmin } from '@/lib/flows/admin-client';
 import {
   isValidE164,
   phoneVariants,
   isRecipientNotAllowedError,
+  sanitizePhoneForMeta,
 } from '@/lib/whatsapp/phone-utils';
-import { getRecipientFromContact } from '@/lib/contacts/recipient';
+import { getChannelClient, type ChannelConfig as ChannelClientConfig } from '@/lib/channels';
 import type { MessageTemplate } from '@/types';
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
+
+/**
+ * Resolve the recipient ID for sending based on channel type.
+ *
+ * - WhatsApp: uses sanitized phone number (digits only, no + prefix)
+ * - Instagram/Messenger: uses external_id or recipient_id from contact
+ */
+function resolveRecipientIdForChannel(
+  channel: string,
+  contact: { phone: string | null; external_id: string | null; recipient_id: string | null }
+): string {
+  if (channel === 'whatsapp') {
+    if (!contact.phone?.trim()) {
+      throw new Error('WhatsApp contact must have a phone number');
+    }
+    return sanitizePhoneForMeta(contact.phone);
+  }
+
+  // Instagram or Messenger: use external_id first, then recipient_id
+  const externalId = contact.external_id?.trim();
+  const recipientId = contact.recipient_id?.trim();
+
+  if (externalId) return externalId;
+  if (recipientId) return recipientId;
+
+  throw new Error(
+    `Instagram/Messenger contact must have external_id or recipient_id (contact: ${contact})`
+  );
+}
 
 export const MEDIA_KINDS = ['image', 'video', 'document', 'audio'] as const;
 export const VALID_MESSAGE_TYPES = [
@@ -202,22 +226,28 @@ export async function sendMessageToConversation(
   }
 
   const contact = conversation.contact;
-  const recipient = getRecipientFromContact(contact);
-  const isPhoneRecipient = !!contact.phone?.trim()
-  // WhatsApp uses digits-only E.164; IG/FB use opaque IDs.
-  const sanitizedPhone = isPhoneRecipient
-    ? contact.phone.trim().replace(/\D/g, '')
-    : recipient
-  if (isPhoneRecipient && !isValidE164(sanitizedPhone)) {
-    throw new SendMessageError(
-      'bad_request',
-      'Invalid phone number format',
-      400
-    );
-  }
 
   // Get channel from conversation
   const channel = (conversation as any).channel || 'whatsapp';
+
+  // Validate phone format for WhatsApp (only channel that uses phone numbers)
+  if (channel === 'whatsapp' && contact.phone?.trim()) {
+    const sanitizedPhone = sanitizePhoneForMeta(contact.phone);
+    if (!isValidE164(sanitizedPhone)) {
+      throw new SendMessageError(
+        'bad_request',
+        'Invalid phone number format',
+        400
+      );
+    }
+  }
+
+  // Resolve recipient ID based on channel type
+  const recipientId = resolveRecipientIdForChannel(channel, {
+    phone: contact.phone ?? null,
+    external_id: (contact as any).external_id ?? null,
+    recipient_id: (contact as any).recipient_id ?? null,
+  });
 
   // Channel config, account-scoped. Uses channel_configs table.
   const { data: config, error: configError } = await db
@@ -308,13 +338,23 @@ export async function sendMessageToConversation(
     templateRow = data ?? null;
   }
 
-  const attempt = async (phone: string): Promise<string> => {
+  // Build channel client config
+  const channelClientConfig: ChannelClientConfig = {
+    accountId: config.account_id,
+    userId: config.user_id,
+    channel: channel as 'whatsapp' | 'instagram' | 'messenger',
+    channelId: config.channel_id,
+    accessToken,
+  };
+
+  // Get the appropriate channel client
+  const channelClient = getChannelClient(channelClientConfig);
+
+  // Attempt function using the channel client
+  const attempt = async (id: string): Promise<string> => {
     if (messageType === 'template') {
-      const result = await sendTemplateMessage({
-        channelId: config.channel_id,
-        messagingProduct: channel,
-        accessToken,
-        to: phone,
+      const result = await channelClient.sendTemplate({
+        recipientId: id,
         templateName: templateName!,
         language: templateLanguage || 'en_US',
         template: templateRow ?? undefined,
@@ -325,12 +365,9 @@ export async function sendMessageToConversation(
       return result.messageId;
     }
     if (isMediaKind) {
-      const result = await sendMediaMessage({
-        channelId: config.channel_id,
-        messagingProduct: channel,
-        accessToken,
-        to: phone,
-        kind: messageType as MediaKind,
+      const result = await channelClient.sendMedia({
+        recipientId: id,
+        kind: messageType as 'image' | 'video' | 'document' | 'audio',
         link: mediaUrl!,
         caption: contentText || undefined,
         filename: filename || undefined,
@@ -338,11 +375,8 @@ export async function sendMessageToConversation(
       });
       return result.messageId;
     }
-    const result = await sendTextMessage({
-      channelId: config.channel_id,
-      messagingProduct: channel,
-      accessToken,
-      to: phone,
+    const result = await channelClient.sendText({
+      recipientId: id,
       text: contentText!,
       contextMessageId,
     });
@@ -350,48 +384,63 @@ export async function sendMessageToConversation(
   };
 
   // Send via Meta — retry across phone-number variants if Meta rejects
-  // with "recipient not in allowed list"; persist a working variant
-  // back to the contact so the next send goes straight through.
+  // with "recipient not in allowed list" (only applies to WhatsApp).
+  // For Instagram/Messenger, no retry logic needed.
   let waMessageId = '';
-  let workingPhone = sanitizedPhone;
-  try {
-    const variants = phoneVariants(sanitizedPhone);
-    let lastError: unknown = null;
+  let workingRecipientId = recipientId;
 
-    for (const variant of variants) {
-      try {
-        waMessageId = await attempt(variant);
-        workingPhone = variant;
-        lastError = null;
-        break;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        if (!isRecipientNotAllowedError(message)) {
-          throw err;
+  if (channel === 'whatsapp') {
+    // WhatsApp: apply phone variant retry logic
+    try {
+      const variants = phoneVariants(recipientId);
+      let lastError: unknown = null;
+
+      for (const variant of variants) {
+        try {
+          waMessageId = await attempt(variant);
+          workingRecipientId = variant;
+          lastError = null;
+          break;
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          if (!isRecipientNotAllowedError(message)) {
+            throw err;
+          }
+          lastError = err;
+          console.warn(
+            `[send-message] variant "${variant}" rejected by Meta, trying next…`
+          );
         }
-        lastError = err;
-        console.warn(
-          `[send-message] variant "${variant}" rejected by Meta, trying next…`
-        );
       }
+
+      if (lastError) throw lastError;
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Unknown Meta API error';
+      console.error('[send-message] Meta send failed for all variants:', message);
+      throw new SendMessageError('meta_error', `Meta API error: ${message}`, 502);
     }
 
-    if (lastError) throw lastError;
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : 'Unknown Meta API error';
-    console.error('[send-message] Meta send failed for all variants:', message);
-    throw new SendMessageError('meta_error', `Meta API error: ${message}`, 502);
-  }
-
-  if (workingPhone !== sanitizedPhone) {
-    console.log(
-      `[send-message] Auto-corrected contact phone: ${sanitizedPhone} → ${workingPhone}`
-    );
-    await db
-      .from('contacts')
-      .update({ phone: workingPhone })
-      .eq('id', contact.id);
+    // Auto-correct phone if a variant worked
+    if (workingRecipientId !== recipientId) {
+      console.log(
+        `[send-message] Auto-corrected contact phone: ${recipientId} → ${workingRecipientId}`
+      );
+      await db
+        .from('contacts')
+        .update({ phone: workingRecipientId })
+        .eq('id', contact.id);
+    }
+  } else {
+    // Instagram/Messenger: single attempt, no retry
+    try {
+      waMessageId = await attempt(recipientId);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Unknown Meta API error';
+      console.error('[send-message] Meta send failed:', message);
+      throw new SendMessageError('meta_error', `Meta API error: ${message}`, 502);
+    }
   }
 
   // Persist the sent message. Field names MUST match the messages

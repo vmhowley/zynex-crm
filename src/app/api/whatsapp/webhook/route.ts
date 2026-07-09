@@ -111,10 +111,11 @@ export async function GET(request: Request) {
       .select('id, verify_token')
 
     // Fetch all channel_configs for IG/FB webhook_verify_token
+    // Don't filter by status - Meta may send webhook verification even after
+    // the channel is disconnected, and we still need to validate the token
     const { data: channelConfigs, error: channelError } = await supabaseAdmin()
       .from('channel_configs')
       .select('id, channel, webhook_verify_token')
-      .eq('status', 'connected')
 
     const waHasError = Boolean(waError)
     const channelHasError = Boolean(channelError)

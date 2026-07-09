@@ -258,7 +258,8 @@ export async function getSubscribedApps(
 // ============================================================
 
 export interface SendTextMessageArgs {
-  messagingProduct: MessagingProduct
+  /** Defaults to 'whatsapp' for backward compatibility */
+  messagingProduct?: MessagingProduct
   /** phone_number_id for whatsapp, ig_user_id for instagram. */
   channelId: string
   accessToken: string
@@ -276,7 +277,7 @@ export interface SendTextMessageArgs {
 export async function sendTextMessage(
   args: SendTextMessageArgs
 ): Promise<MetaSendResult> {
-  const { channelId, accessToken, to, text, contextMessageId, messagingProduct } = args
+  const { channelId, accessToken, to, text, contextMessageId, messagingProduct = 'whatsapp' } = args
   const payload: Record<string, unknown> = {
     type: 'text',
     text: { body: text },
@@ -304,7 +305,8 @@ export async function sendTextMessage(
 export type MediaKind = 'image' | 'video' | 'document' | 'audio'
 
 export interface SendMediaMessageArgs {
-  messagingProduct: MessagingProduct
+  /** Defaults to 'whatsapp' for backward compatibility */
+  messagingProduct?: MessagingProduct
   /** phone_number_id for whatsapp, ig_user_id for instagram. */
   channelId: string
   accessToken: string
@@ -334,7 +336,7 @@ export interface SendMediaMessageArgs {
 export async function sendMediaMessage(
   args: SendMediaMessageArgs,
 ): Promise<MetaSendResult> {
-  const { channelId, accessToken, to, kind, link, caption, filename, contextMessageId, messagingProduct } = args
+  const { channelId, accessToken, to, kind, link, caption, filename, contextMessageId, messagingProduct = 'whatsapp' } = args
   if (!link) throw new Error('sendMediaMessage requires a link.')
 
   // Audio accepts neither caption nor filename per Meta's spec — adding
@@ -374,7 +376,8 @@ import {
 } from './template-send-builder'
 
 export interface SendTemplateMessageArgs {
-  messagingProduct: MessagingProduct
+  /** Defaults to 'whatsapp' for backward compatibility */
+  messagingProduct?: MessagingProduct
   /** phone_number_id for whatsapp, ig_user_id for instagram. */
   channelId: string
   accessToken: string
@@ -420,7 +423,8 @@ export interface SendTemplateMessageArgs {
 export async function sendTemplateMessage(
   args: SendTemplateMessageArgs
 ): Promise<MetaSendResult> {
-  if (args.messagingProduct === 'instagram') {
+  const messagingProduct = args.messagingProduct ?? 'whatsapp'
+  if (messagingProduct === 'instagram') {
     throw new UnsupportedChannelError('instagram', 'template', "Meta's Instagram API does not expose template sends.")
   }
   const {
@@ -433,7 +437,6 @@ export async function sendTemplateMessage(
     template,
     messageParams,
     contextMessageId,
-    messagingProduct,
   } = args
 
   const templatePayload: Record<string, unknown> = {
@@ -710,7 +713,8 @@ export async function deleteMessageTemplate(
 // ============================================================
 
 export interface SendReactionMessageArgs {
-  messagingProduct: MessagingProduct
+  /** Defaults to 'whatsapp' for backward compatibility */
+  messagingProduct?: MessagingProduct
   /** phone_number_id for whatsapp, ig_user_id for instagram. */
   channelId: string
   accessToken: string
@@ -728,10 +732,11 @@ export interface SendReactionMessageArgs {
 export async function sendReactionMessage(
   args: SendReactionMessageArgs
 ): Promise<MetaSendResult> {
-  if (args.messagingProduct === 'instagram') {
+  const messagingProduct = args.messagingProduct ?? 'whatsapp'
+  if (messagingProduct === 'instagram') {
     throw new UnsupportedChannelError('instagram', 'reaction', "Meta's Instagram API does not expose reactions.")
   }
-  const { channelId, accessToken, to, targetMessageId, emoji, messagingProduct } = args
+  const { channelId, accessToken, to, targetMessageId, emoji } = args
   const body = buildMessagingBody(messagingProduct, to, {
     type: 'reaction',
     reaction: { message_id: targetMessageId, emoji },
@@ -789,7 +794,8 @@ export interface InteractiveButton {
 }
 
 export interface SendInteractiveButtonsArgs {
-  messagingProduct: MessagingProduct
+  /** Defaults to 'whatsapp' for backward compatibility */
+  messagingProduct?: MessagingProduct
   /** phone_number_id for whatsapp, ig_user_id for instagram. */
   channelId: string
   accessToken: string
@@ -817,13 +823,13 @@ export interface SendInteractiveButtonsArgs {
 export async function sendInteractiveButtons(
   args: SendInteractiveButtonsArgs
 ): Promise<MetaSendResult> {
-  if (args.messagingProduct === 'instagram') {
+  const messagingProduct = args.messagingProduct ?? 'whatsapp'
+  if (messagingProduct === 'instagram') {
     throw new UnsupportedChannelError('instagram', 'interactive', "Meta's Instagram API does not expose interactive button messages.")
   }
   const {
     channelId, accessToken, to,
     bodyText, headerText, footerText, buttons, contextMessageId,
-    messagingProduct,
   } = args
   validateInteractiveBody(bodyText)
   validateInteractiveHeaderFooter(headerText, footerText)
@@ -894,7 +900,8 @@ export interface InteractiveListSection {
 }
 
 export interface SendInteractiveListArgs {
-  messagingProduct: MessagingProduct
+  /** Defaults to 'whatsapp' for backward compatibility */
+  messagingProduct?: MessagingProduct
   /** phone_number_id for whatsapp, ig_user_id for instagram. */
   channelId: string
   accessToken: string
@@ -921,13 +928,13 @@ export interface SendInteractiveListArgs {
 export async function sendInteractiveList(
   args: SendInteractiveListArgs
 ): Promise<MetaSendResult> {
-  if (args.messagingProduct === 'instagram') {
+  const messagingProduct = args.messagingProduct ?? 'whatsapp'
+  if (messagingProduct === 'instagram') {
     throw new UnsupportedChannelError('instagram', 'interactive', "Meta's Instagram API does not expose interactive list messages.")
   }
   const {
     channelId, accessToken, to,
     bodyText, buttonLabel, headerText, footerText, sections, contextMessageId,
-    messagingProduct,
   } = args
   validateInteractiveBody(bodyText)
   validateInteractiveHeaderFooter(headerText, footerText)

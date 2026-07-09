@@ -8,7 +8,7 @@ import {
   normalizeConversations,
 } from "@/lib/inbox/conversations";
 import { cn } from "@/lib/utils";
-import type { Conversation, ConversationStatus, Tag } from "@/types";
+import type { Conversation, ConversationStatus, Tag, ChannelType } from "@/types";
 import { Search, ChevronDown, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,13 @@ const STATUS_COLORS: Record<ConversationStatus, string> = {
   open: "bg-primary",
   pending: "bg-amber-500",
   closed: "bg-muted-foreground",
+};
+
+// Channel indicator colors (max 24px²)
+const CHANNEL_INDICATORS: Record<string, { bg: string; gradient?: string }> = {
+  whatsapp: { bg: "bg-green-500" },
+  instagram: { bg: "bg-gradient-to-tr from-yellow-400 via-orange-500 to-pink-500" },
+  messenger: { bg: "bg-blue-500" },
 };
 
 type InboxFilter = ConversationStatus | "all" | "unread";
@@ -442,6 +449,10 @@ function ConversationItem({
       })
     : "";
 
+  // Get channel indicator style
+  const channel = conversation.channel as ChannelType | undefined;
+  const channelIndicator = channel ? CHANNEL_INDICATORS[channel] : null;
+
   return (
     <button
       onClick={handleClick}
@@ -450,6 +461,19 @@ function ConversationItem({
         isActive && "border-l-2 border-primary bg-muted/70"
       )}
     >
+      {/* Channel indicator */}
+      {channelIndicator && (
+        <div className="relative shrink-0">
+          <div
+            className={cn(
+              "h-2.5 w-2.5 rounded-full",
+              channelIndicator.gradient || channelIndicator.bg
+            )}
+            title={channel}
+          />
+        </div>
+      )}
+
       {/* Avatar */}
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
         {contact?.avatar_url ? (

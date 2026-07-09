@@ -9,7 +9,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
+import { findExistingContact, findExistingContactByExternalId, isUniqueViolation } from '@/lib/contacts/dedupe';
 import { resolveImportTagIds } from '@/lib/contacts/resolve-import-tags';
 import { isValidE164 } from '@/lib/whatsapp/phone-utils';
 
@@ -97,20 +97,24 @@ export async function resolveAuditUserId(
 export interface ContactInput {
   phone?: string | null;
   recipient_id?: string | null;
+  external_id?: string | null;
   name?: string | null;
   email?: string | null;
   company?: string | null;
 }
 
 /**
- * Find (by phone or recipient_id) or create a contact in `accountId`.
+ * Find (by phone, external_id, or recipient_id) or create a contact in `accountId`.
  * Returns the contact id and whether it was created.
  *
  * - When `phone` is provided, uses the shared `findExistingContact`
  *   dedupe (fuzzy phone match) + unique-violation race backstop.
+ * - When `external_id` is provided (DigitBill path), does an exact match on
+ *   (account_id, external_id). Exact match only (no fuzzy logic).
  * - When `recipient_id` is provided (IG/FB), does an exact match on
- *   (account_id, recipient_id). Both fields can be set; phone wins
- *   when both are present for lookup purposes.
+ *   (account_id, recipient_id).
+ * - Priority: phone > external_id > recipient_id for lookup when multiple present.
+ *   At least one of phone, external_id, or recipient_id must be provided.
  */
 export async function findOrCreateContact(
   db: SupabaseClient,
@@ -120,9 +124,10 @@ export async function findOrCreateContact(
 ): Promise<{ id: string; created: boolean }> {
   const phone = input.phone?.trim() ?? ''
   const recipientId = input.recipient_id?.trim() ?? ''
+  const externalId = input.external_id?.trim() ?? ''
 
-  if (!phone && !recipientId) {
-    throw new ContactError("'phone' or 'recipient_id' is required", 400);
+  if (!phone && !recipientId && !externalId) {
+    throw new ContactError("'phone', 'external_id', or 'recipient_id' is required", 400);
   }
 
   // Look up by phone when available (WhatsApp path)
@@ -136,8 +141,15 @@ export async function findOrCreateContact(
     }
     const existing = await findExistingContact(db, accountId, digitsOnly);
     if (existing) {
+      const updates: Record<string, string> = {};
       if (recipientId && !existing.recipient_id) {
-        await db.from('contacts').update({ recipient_id: recipientId }).eq('id', existing.id)
+        updates.recipient_id = recipientId;
+      }
+      if (externalId && !(existing as Record<string, unknown>).external_id) {
+        updates.external_id = externalId;
+      }
+      if (Object.keys(updates).length > 0) {
+        await db.from('contacts').update(updates).eq('id', existing.id);
       }
       return { id: existing.id, created: false };
     }
@@ -149,6 +161,7 @@ export async function findOrCreateContact(
         user_id: auditUserId,
         phone: digitsOnly,
         recipient_id: recipientId || null,
+        external_id: externalId || null,
         name: input.name ?? digitsOnly,
         email: input.email ?? null,
         company: input.company ?? null,
@@ -159,6 +172,51 @@ export async function findOrCreateContact(
     if (error || !created) {
       if (isUniqueViolation(error)) {
         const raced = await findExistingContact(db, accountId, digitsOnly);
+        if (raced) return { id: raced.id, created: false };
+      }
+      console.error('[api/v1/contacts] create error:', error);
+      throw new ContactError('Failed to create contact', 500);
+    }
+
+    return { id: created.id, created: true };
+  }
+
+  // Look up by external_id (DigitBill path)
+  if (externalId) {
+    const existing = await findExistingContactByExternalId(db, accountId, externalId);
+    if (existing) {
+      // Update other identifiers if provided
+      const updates: Record<string, string> = {};
+      if (recipientId && !existing.recipient_id) {
+        updates.recipient_id = recipientId;
+      }
+      if (phone && !existing.phone) {
+        updates.phone = phone.replace(/\D/g, '');
+      }
+      if (Object.keys(updates).length > 0) {
+        await db.from('contacts').update(updates).eq('id', existing.id);
+      }
+      return { id: existing.id, created: false };
+    }
+
+    const { data: created, error } = await db
+      .from('contacts')
+      .insert({
+        account_id: accountId,
+        user_id: auditUserId,
+        external_id: externalId,
+        recipient_id: recipientId || null,
+        phone: phone ? phone.replace(/\D/g, '') : null,
+        name: input.name ?? externalId,
+        email: input.email ?? null,
+        company: input.company ?? null,
+      })
+      .select('id')
+      .single();
+
+    if (error || !created) {
+      if (isUniqueViolation(error)) {
+        const raced = await findExistingContactByExternalId(db, accountId, externalId);
         if (raced) return { id: raced.id, created: false };
       }
       console.error('[api/v1/contacts] create error:', error);

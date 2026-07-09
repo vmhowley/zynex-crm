@@ -9,9 +9,12 @@
 //     "template_language": "en_US",         // optional (default en_US)
 //     "recipients": [                        // required, 1..1000
 //       { "to": "+14155550123", "params": ["Jane"] },
-//       { "to": "+14155550124" }
+//       { "to": "+14155550124", "channel": "whatsapp" }  // optional channel per recipient
 //     ]
 //   }
+//
+// Note: In v1, only WhatsApp is supported for templates. Recipients
+// with other channels will be marked as failed in the results.
 //
 // The broadcast + its recipient rows are persisted synchronously, then
 // the Meta fan-out runs in `after()` so the request returns fast. Poll
@@ -71,6 +74,7 @@ export async function POST(request: Request) {
       recipients: recipients.map((r) => ({
         to: typeof r?.to === 'string' ? r.to : '',
         params: Array.isArray(r?.params) ? r.params : undefined,
+        channel: typeof r?.channel === 'string' ? r.channel : undefined,
       })),
     });
 

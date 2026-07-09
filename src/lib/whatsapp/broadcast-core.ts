@@ -48,6 +48,8 @@ export interface BroadcastRecipientInput {
   to: string;
   /** Positional body params for the template ({{1}}, {{2}}…). */
   params?: string[];
+  /** Optional channel override for this recipient. In v1, only 'whatsapp' is supported. */
+  channel?: ChannelType;
 }
 
 export interface CreateBroadcastParams {
@@ -55,6 +57,8 @@ export interface CreateBroadcastParams {
   templateName: string;
   templateLanguage?: string | null;
   recipients: BroadcastRecipientInput[];
+  /** Channel per recipient for mixed-channel broadcasts. If not specified, defaults to 'whatsapp'. */
+  channel?: ChannelType;
 }
 
 interface PlannedRecipient {
@@ -99,7 +103,7 @@ export async function createBroadcast(
   if (!Array.isArray(recipients) || recipients.length === 0) {
     throw new BroadcastError(
       'bad_request',
-      "'recipients' must be a non-empty array of { to, params? }",
+      "'recipients' must be a non-empty array of { to, params?, channel? }",
       400
     );
   }
@@ -113,6 +117,7 @@ export async function createBroadcast(
 
   // Config (fail fast + provides the audit trail owner already resolved
   // by the caller). Meta send needs channel_id + decrypted token.
+  // Only WhatsApp is supported for templates in v1.
   const { data: config, error: configError } = await db
     .from('channel_configs')
     .select('*')
@@ -154,9 +159,19 @@ export async function createBroadcast(
 
   // Resolve each recipient to a contact. Invalid phones are dropped
   // (counted as rejected) rather than aborting the whole broadcast.
+  // Non-WhatsApp channels are also rejected since templates are only
+  // supported on WhatsApp in v1.
   const resolved: { contactId: string; phone: string; params: string[] }[] = [];
   let rejected = 0;
+  const defaultChannel = params.channel ?? 'whatsapp';
   for (const r of recipients) {
+    // Check channel - only WhatsApp is supported for templates in v1
+    const recipientChannel = r.channel ?? defaultChannel;
+    if (recipientChannel !== 'whatsapp') {
+      rejected++;
+      continue;
+    }
+
     const sanitized = sanitizePhoneForMeta(typeof r.to === 'string' ? r.to : '');
     if (!isValidE164(sanitized)) {
       rejected++;

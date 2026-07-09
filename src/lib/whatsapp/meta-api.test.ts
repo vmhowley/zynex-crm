@@ -268,3 +268,90 @@ describe("sendInteractiveList — validation", () => {
     });
   });
 });
+
+describe("messagingProduct parameter — backward compatibility", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        return new Response(
+          JSON.stringify({ messages: [{ id: "wamid.TEST" }] }),
+          { status: 200 },
+        );
+      }),
+    );
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("sendInteractiveButtons defaults to 'whatsapp' when messagingProduct is omitted", async () => {
+    let captured: { body: unknown } | null = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        captured = { body: JSON.parse(String(init.body)) };
+        return new Response(
+          JSON.stringify({ messages: [{ id: "wamid.TEST" }] }),
+          { status: 200 },
+        );
+      }),
+    );
+
+    // Omit messagingProduct - should default to 'whatsapp'
+    await sendInteractiveButtons({
+      channelId: "test-phone",
+      accessToken: "test-token",
+      to: "1234567890",
+      bodyText: "Test",
+      buttons: [{ id: "a", title: "A" }],
+    });
+
+    expect(captured).not.toBeNull();
+    expect(captured!.body).toMatchObject({
+      messaging_product: "whatsapp",
+    });
+  });
+
+  it("sendInteractiveButtons throws UnsupportedChannelError for instagram (not supported)", async () => {
+    // Instagram doesn't support interactive messages - verify the error is thrown with correct channel
+    await expect(
+      sendInteractiveButtons({
+        channelId: "test-phone",
+        accessToken: "test-token",
+        to: "1234567890",
+        bodyText: "Test",
+        buttons: [{ id: "a", title: "A" }],
+        messagingProduct: "instagram",
+      }),
+    ).rejects.toThrow("Meta's Instagram API does not expose interactive button messages.");
+  });
+
+  it("sendInteractiveList defaults to 'whatsapp' when messagingProduct is omitted", async () => {
+    let captured: { body: unknown } | null = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        captured = { body: JSON.parse(String(init.body)) };
+        return new Response(
+          JSON.stringify({ messages: [{ id: "wamid.TEST" }] }),
+          { status: 200 },
+        );
+      }),
+    );
+
+    await sendInteractiveList({
+      channelId: "test-phone",
+      accessToken: "test-token",
+      to: "1234567890",
+      bodyText: "Test",
+      buttonLabel: "Open",
+      sections: [{ rows: [{ id: "r1", title: "Row 1" }] }],
+    });
+
+    expect(captured).not.toBeNull();
+    expect(captured!.body).toMatchObject({
+      messaging_product: "whatsapp",
+    });
+  });
+});

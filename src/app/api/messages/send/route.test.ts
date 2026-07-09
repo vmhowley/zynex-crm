@@ -153,6 +153,10 @@ vi.mock('@/lib/whatsapp/meta-api', () => ({
   sendMediaMessage: vi.fn(),
 }))
 
+// The actual route logic is in the shared send-message library.
+// This test validates the route adapter behavior (auth, rate limiting,
+// and conversation resolution) for the contact_id → find-or-create path.
+
 import { POST } from './route'
 
 function postContactTemplate(overrides: Record<string, unknown> = {}) {
@@ -173,7 +177,7 @@ function postContactTemplate(overrides: Record<string, unknown> = {}) {
   )
 }
 
-describe('POST /api/whatsapp/send — contact_id template path', () => {
+describe('POST /api/messages/send — contact_id template path', () => {
   beforeEach(() => {
     conversationInserts.length = 0
     messageInserts.length = 0
@@ -251,7 +255,7 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
 
   it('400s when neither conversation_id nor contact_id is provided', async () => {
     const res = await POST(
-      new Request('http://localhost/api/whatsapp/send', {
+    new Request('http://localhost/api/messages/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message_type: 'template', template_name: 'x' }),

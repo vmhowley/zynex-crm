@@ -57,6 +57,12 @@ interface NewRecipient {
    * sendTemplateMessage for the merge rules.
    */
   messageParams?: SendTimeParams
+  /**
+   * Optional channel per recipient. If not specified, uses the
+   * default channel from the request. In v1, only 'whatsapp' is
+   * supported — other channels will fail with an error in results.
+   */
+  channel?: ChannelType
 }
 
 export async function POST(request: Request) {
@@ -115,8 +121,10 @@ export async function POST(request: Request) {
     }
 
     // Default to WhatsApp — matches the original (pre-channel) behaviour.
-    const sendChannel: ChannelType = channel ?? 'whatsapp'
-    if (sendChannel !== 'whatsapp') {
+    // Note: Individual recipients can override with their own 'channel' field.
+    // Non-WhatsApp recipients will fail with an error in results (templates not supported).
+    const defaultChannel: ChannelType = channel ?? 'whatsapp'
+    if (defaultChannel !== 'whatsapp') {
       return NextResponse.json(
         {
           error:
@@ -159,7 +167,7 @@ export async function POST(request: Request) {
       .from('channel_configs')
       .select('*')
       .eq('account_id', accountId)
-      .eq('channel', sendChannel)
+      .eq('channel', 'whatsapp')
       .single()
 
     if (configError || !config) {
@@ -202,6 +210,20 @@ export async function POST(request: Request) {
     let failedCount = 0
 
     for (const recipient of recipients) {
+      // Determine channel for this recipient (individual override or default)
+      const recipientChannel: ChannelType = recipient.channel ?? defaultChannel
+
+      // Templates are only supported on WhatsApp in v1
+      if (recipientChannel !== 'whatsapp') {
+        results.push({
+          phone: recipient.phone,
+          status: 'failed',
+          error: 'Templates not supported on this channel in v1',
+        })
+        failedCount++
+        continue
+      }
+
       const sanitized = sanitizePhoneForMeta(recipient.phone)
 
       if (!isValidE164(sanitized)) {
@@ -224,7 +246,7 @@ export async function POST(request: Request) {
         try {
           const result = await sendTemplateMessage({
             channelId: config.channel_id,
-            messagingProduct: sendChannel,
+            messagingProduct: recipientChannel,
             accessToken,
             to: variant,
             templateName: template_name,

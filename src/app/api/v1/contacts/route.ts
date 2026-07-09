@@ -107,8 +107,9 @@ export async function POST(request: Request) {
 
     const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
     const recipient_id = typeof body.recipient_id === 'string' ? body.recipient_id.trim() : '';
-    if (!phone && !recipient_id) {
-      return fail('bad_request', "'phone' or 'recipient_id' is required", 400);
+    const external_id = typeof body.external_id === 'string' ? body.external_id.trim() : '';
+    if (!phone && !recipient_id && !external_id) {
+      return fail('bad_request', "'phone', 'external_id', or 'recipient_id' is required", 400);
     }
 
     const auditUserId = await resolveAuditUserId(ctx.supabase, ctx.accountId);
@@ -120,6 +121,7 @@ export async function POST(request: Request) {
       {
         phone: phone || undefined,
         recipient_id: recipient_id || undefined,
+        external_id: external_id || undefined,
         name: typeof body.name === 'string' ? body.name : undefined,
         email: typeof body.email === 'string' ? body.email : undefined,
         company: typeof body.company === 'string' ? body.company : undefined,

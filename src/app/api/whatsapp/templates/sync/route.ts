@@ -150,17 +150,19 @@ export async function POST() {
       )
     }
 
+    // Gate: templates are only supported on WhatsApp in v1
     const { data: config, error: configError } = await supabase
-      .from('whatsapp_config')
+      .from('channel_configs')
       .select('*')
       .eq('account_id', accountId)
+      .eq('channel', 'whatsapp')
       .single()
 
     if (configError || !config) {
       return NextResponse.json(
         {
           error:
-            'WhatsApp not configured. Connect your WhatsApp Business account in Settings first.',
+            'WhatsApp not configured. Templates are only supported on WhatsApp in v1. Please set up your WhatsApp integration first.',
         },
         { status: 400 },
       )
@@ -170,7 +172,7 @@ export async function POST() {
       return NextResponse.json(
         {
           error:
-            'WABA (WhatsApp Business Account) ID missing. Re-connect your account in Settings.',
+            'WABA (WhatsApp Business Account) ID missing. Re-connect your WhatsApp account in Settings.',
         },
         { status: 400 },
       )

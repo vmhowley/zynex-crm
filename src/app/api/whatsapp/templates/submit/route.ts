@@ -138,6 +138,25 @@ export async function POST(request: Request) {
       )
     }
 
+    // Gate: templates are only supported on WhatsApp in v1
+    // Check if WhatsApp channel is configured
+    const { data: channelConfig, error: channelError } = await supabase
+      .from('channel_configs')
+      .select('channel')
+      .eq('account_id', accountId)
+      .eq('channel', 'whatsapp')
+      .maybeSingle()
+
+    if (channelError || !channelConfig) {
+      return NextResponse.json(
+        {
+          error:
+            'WhatsApp not configured. Templates are only supported on WhatsApp in v1. Please set up your WhatsApp integration first.',
+        },
+        { status: 400 },
+      )
+    }
+
     const dryRun =
       process.env.WHATSAPP_TEMPLATES_DRY_RUN === 'true' ||
       process.env.WHATSAPP_TEMPLATES_DRY_RUN === '1'
