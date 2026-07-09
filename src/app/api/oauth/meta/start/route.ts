@@ -114,7 +114,17 @@ export async function GET(request: Request) {
       );
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+    // Use SITE_URL if set (Vercel convention), otherwise fall back to NEXT_PUBLIC_SITE_URL
+    const siteUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL;
+    
+    if (!siteUrl) {
+      console.error("SITE_URL and NEXT_PUBLIC_SITE_URL are not set");
+      return NextResponse.json(
+        { error: "Site URL not configured. Please set NEXT_PUBLIC_SITE_URL environment variable." },
+        { status: 500 }
+      );
+    }
+    
     const callbackUrl = `${siteUrl}/api/oauth/meta/callback`;
 
     const nonce = crypto.randomBytes(16).toString("hex");
