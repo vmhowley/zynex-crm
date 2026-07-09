@@ -72,26 +72,42 @@ class WhatsAppChannelClient implements ChannelClient {
     this.config = config
   }
 
-  async sendText(args: Omit<SendTextMessageArgs, 'phoneNumberId' | 'messagingProduct' | 'channelId'> & { recipientId: string }) {
+  async sendText(args: Omit<SendTextMessageArgs, 'phoneNumberId' | 'messagingProduct' | 'channelId' | 'to' | 'accessToken'> & { recipientId: string }) {
     return sendTextMessage({
-      ...args,
+      to: args.recipientId,
+      text: args.text,
+      contextMessageId: args.contextMessageId,
       channelId: this.config.channelId,
+      accessToken: this.config.accessToken,
       messagingProduct: 'whatsapp',
     })
   }
 
-  async sendMedia(args: Omit<SendMediaMessageArgs, 'phoneNumberId' | 'messagingProduct' | 'channelId'> & { recipientId: string; kind: MediaKind }) {
+  async sendMedia(args: Omit<SendMediaMessageArgs, 'phoneNumberId' | 'messagingProduct' | 'channelId' | 'to' | 'accessToken'> & { recipientId: string; kind: MediaKind }) {
     return sendMediaMessage({
-      ...args,
+      to: args.recipientId,
+      kind: args.kind,
+      link: args.link,
+      caption: args.caption,
+      filename: args.filename,
+      contextMessageId: args.contextMessageId,
       channelId: this.config.channelId,
+      accessToken: this.config.accessToken,
       messagingProduct: 'whatsapp',
     })
   }
 
-  async sendTemplate(args: Omit<SendTemplateMessageArgs, 'phoneNumberId' | 'messagingProduct' | 'channelId'> & { recipientId: string }) {
+  async sendTemplate(args: Omit<SendTemplateMessageArgs, 'phoneNumberId' | 'messagingProduct' | 'channelId' | 'to' | 'accessToken'> & { recipientId: string }) {
     return sendTemplateMessage({
-      ...args,
+      to: args.recipientId,
+      templateName: args.templateName,
+      language: args.language,
+      template: args.template,
+      messageParams: args.messageParams,
+      params: args.params,
+      contextMessageId: args.contextMessageId,
       channelId: this.config.channelId,
+      accessToken: this.config.accessToken,
       messagingProduct: 'whatsapp',
     })
   }
