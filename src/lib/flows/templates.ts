@@ -529,15 +529,16 @@ const LEAD_QUALIFICATION: FlowTemplate = {
 };
 
 // ============================================================
-// 5. Customer Onboarding — checklist-style onboarding for new customers
+// 5. Customer Onboarding — generic checklist for any business
 // ============================================================
-// Adapt: replace step instructions with your own product setup steps,
-// change step count, update completion message for your brand.
+// ADAPT THIS TEMPLATE: Replace every step instruction with your own.
+// This is a skeleton — edit the text, change step names, add/remove
+// steps to match your product's setup process.
 const CUSTOMER_ONBOARDING: FlowTemplate = {
   slug: "customer_onboarding",
   name: "Customer Onboarding",
   description:
-    "Guide new customers through setup with a checklist-style flow. Covers account connection, configuration, team invitation, and first workflow creation.",
+    "A checklist-style onboarding flow. Guides new customers through setup steps with a confirmation at each one. Adapt the steps and instructions to any product.",
   icon: "CheckSquare",
   trigger_type: "keyword",
   trigger_config: { keywords: ["onboarding", "get started", "setup"], match_type: "contains" },
@@ -554,102 +555,111 @@ const CUSTOMER_ONBOARDING: FlowTemplate = {
       node_key: "checklist",
       node_type: "send_list",
       config: {
-        header_text: "🎯 Your onboarding checklist",
-        text: "You have 4 steps to get set up. Which shall we start with?",
+        header_text: "🎯 Your setup checklist",
+        text: "You have 4 steps to get started. Which shall we begin with?",
         button_label: "View steps",
         sections: [
           {
-            title: "🔌 Integration",
+            title: "📋 Step 1",
             rows: [
-              { reply_id: "connect", title: "Connect your channel", description: "Link WhatsApp, Instagram, or Messenger", next_node_key: "step_connect" },
+              { reply_id: "step1", title: "Set up your profile", description: "Add your business info and preferences", next_node_key: "step_1" },
             ],
           },
           {
-            title: "⚙️ Configuration",
+            title: "📁 Step 2",
             rows: [
-              { reply_id: "configure", title: "Configure your account", description: "Set up business hours, notifications, etc.", next_node_key: "step_configure" },
+              { reply_id: "step2", title: "Add your first item", description: "Add a product, service, or data entry", next_node_key: "step_2" },
             ],
           },
           {
-            title: "👥 Team",
+            title: "👥 Step 3",
             rows: [
-              { reply_id: "invite", title: "Invite your team", description: "Add up to 5 team members", next_node_key: "step_invite" },
+              { reply_id: "step3", title: "Invite your team", description: "Add colleagues and assign roles", next_node_key: "step_3" },
             ],
           },
           {
-            title: "🚀 First Workflow",
+            title: "🚀 Step 4",
             rows: [
-              { reply_id: "workflow", title: "Create your first workflow", description: "Automate your first process", next_node_key: "step_workflow" },
+              { reply_id: "step4", title: "Complete first action", description: "Send, create, or configure your first item", next_node_key: "step_4" },
             ],
           },
         ],
       } as SendListNodeConfig,
     },
 
-    // ── Step: Connect ─────────────────────────────────────────
+    // ── Step 1 ────────────────────────────────────────────────
     {
-      node_key: "step_connect",
+      node_key: "step_1",
       node_type: "send_message",
       config: {
-        text: "🔌 Connecting your channel:\n\n1. Go to Settings → Channels\n2. Select your channel (WhatsApp, Instagram, etc.)\n3. Follow the auth steps\n\nWhen done, type 'done' to mark this step ✅",
-        next_node_key: "wait_connect",
+        text: "📋 Step 1: Set up your profile.\n\n[Replace this with your own instructions — e.g.]\n1. Go to Settings → Profile\n2. Enter your business name, address, and contact info\n3. Save\n\nWhen done, type 'done' to continue ✅",
+        next_node_key: "wait_1",
       } as SendMessageNodeConfig,
     },
     {
-      node_key: "wait_connect",
+      node_key: "wait_1",
       node_type: "collect_input",
       config: {
-        prompt_text: "Type 'done' when you've connected your channel:",
-        var_key: "connect_done",
-        next_node_key: "step_configure",
+        prompt_text: "Type 'done' when Step 1 is complete:",
+        var_key: "step1_done",
+        next_node_key: "step_2",
       } as CollectInputNodeConfig,
     },
 
-    // ── Step: Configure ────────────────────────────────────────
+    // ── Step 2 ────────────────────────────────────────────────
     {
-      node_key: "step_configure",
+      node_key: "step_2",
       node_type: "send_message",
       config: {
-        text: "⚙️ Configuring your account:\n\n1. Go to Settings → Business Profile\n2. Set your business hours\n3. Configure notification preferences\n\nWhen finished, type 'done'",
-        next_node_key: "wait_configure",
+        text: "📁 Step 2: Add your first item.\n\n[Replace with your own — e.g. for CRM: add first contact. For invoicing: add first product.]\n1. Go to [Your Module]\n2. Click Add / New\n3. Fill in the required fields\n4. Save\n\nType 'done' when ready ✅",
+        next_node_key: "wait_2",
       } as SendMessageNodeConfig,
     },
     {
-      node_key: "wait_configure",
+      node_key: "wait_2",
       node_type: "collect_input",
       config: {
-        prompt_text: "Type 'done' when configuration is complete:",
-        var_key: "configure_done",
-        next_node_key: "step_invite",
+        prompt_text: "Type 'done' when Step 2 is complete:",
+        var_key: "step2_done",
+        next_node_key: "step_3",
       } as CollectInputNodeConfig,
     },
 
-    // ── Step: Invite ──────────────────────────────────────────
+    // ── Step 3 ────────────────────────────────────────────────
     {
-      node_key: "step_invite",
+      node_key: "step_3",
       node_type: "send_message",
       config: {
-        text: "👥 Inviting your team:\n\n1. Go to Settings → Team\n2. Add your colleagues' emails\n3. Assign roles: Agent, Admin, or Viewer\n\nTip: having agents handle support frees you up to focus on growing your business.",
-        next_node_key: "step_workflow",
+        text: "👥 Step 3: Invite your team.\n\n[Replace with your own — e.g.]\n1. Go to Settings → Team\n2. Enter your colleagues' emails\n3. Assign roles: Admin, Editor, or Viewer\n\nDelegating tasks helps you focus on what matters. Type 'done' when ready ✅",
+        next_node_key: "wait_3",
       } as SendMessageNodeConfig,
     },
-
-    // ── Step: Workflow ────────────────────────────────────────
     {
-      node_key: "step_workflow",
+      node_key: "wait_3",
+      node_type: "collect_input",
+      config: {
+        prompt_text: "Type 'done' when Step 3 is complete:",
+        var_key: "step3_done",
+        next_node_key: "step_4",
+      } as CollectInputNodeConfig,
+    },
+
+    // ── Step 4 ────────────────────────────────────────────────
+    {
+      node_key: "step_4",
       node_type: "send_message",
       config: {
-        text: "🚀 Creating your first workflow:\n\n1. Go to Flows → Create new\n2. Choose a template or start from scratch\n3. Set your trigger (e.g. new message, keyword)\n4. Add actions (reply, tag, assign, etc.)\n\nTip: start simple! One flow that works well is better than five half-finished ones.",
-        next_node_key: "onboarding_complete",
+        text: "🚀 Step 4: Complete your first action.\n\n[Replace with the key action your product enables — e.g. send first invoice, create first deal, post first update.]\n1. Go to [Module]\n2. Click [Action]\n3. Fill in the details\n4. Submit\n\nYou're almost done! Type 'done' to finish ✅",
+        next_node_key: "complete",
       } as SendMessageNodeConfig,
     },
 
     // ── Completion ────────────────────────────────────────────
     {
-      node_key: "onboarding_complete",
+      node_key: "complete",
       node_type: "send_message",
       config: {
-        text: "🎉 Onboarding complete!\n\nYour account is ready:\n✅ Channel connected\n✅ Settings configured\n✅ Team invited\n✅ Workflow created\n\nNext step: explore your dashboard and try out some automations!\n\nNeed help? Type 'support' anytime.",
+        text: "🎉 You're all set!\n\nYour account is ready to go:\n✅ Profile configured\n✅ First item added\n✅ Team invited\n✅ First action completed\n\nTip: explore the dashboard to discover more features as you need them.\n\nNeed help? Just type 'support' and we'll assist you.",
         next_node_key: "end",
       } as SendMessageNodeConfig,
     },
