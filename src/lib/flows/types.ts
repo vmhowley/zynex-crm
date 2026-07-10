@@ -35,34 +35,34 @@ export interface SendMessageNodeConfig {
 }
 
 export interface SendButtonsNodeConfig {
-  text: string;
+  text: string | { en: string; es: string };
   /** Optional header / footer lines around the buttons. */
-  header_text?: string;
-  footer_text?: string;
+  header_text?: string | { en: string; es: string };
+  footer_text?: string | { en: string; es: string };
   /** 1-3 buttons; Meta cap enforced in meta-api validation. */
   buttons: Array<{
     /** Stable id sent back by Meta when this button is tapped. */
     reply_id: string;
     /** Visible label (≤ 20 chars per Meta). */
-    title: string;
+    title: string | { en: string; es: string };
     /** node_key the runner advances to when this button is tapped. */
     next_node_key: string;
   }>;
 }
 
 export interface SendListNodeConfig {
-  text: string;
+  text: string | { en: string; es: string };
   /** Label of the tap-to-expand button on the message bubble. */
-  button_label: string;
-  header_text?: string;
-  footer_text?: string;
+  button_label: string | { en: string; es: string };
+  header_text?: string | { en: string; es: string };
+  footer_text?: string | { en: string; es: string };
   /** 1-10 rows TOTAL across sections; cap enforced in meta-api. */
   sections: Array<{
-    title?: string;
+    title?: string | { en: string; es: string };
     rows: Array<{
       reply_id: string;
-      title: string;
-      description?: string;
+      title: string | { en: string; es: string };
+      description?: string | { en: string; es: string };
       next_node_key: string;
     }>;
   }>;
@@ -118,7 +118,7 @@ export interface HandoffNodeConfig {
  */
 export interface CollectInputNodeConfig {
   /** Prompt text sent to the customer before they reply. */
-  prompt_text: string;
+  prompt_text: string | { en: string; es: string };
   /**
    * Key under which to store the captured text in
    * `flow_runs.vars`. Stable identifier — used by downstream
