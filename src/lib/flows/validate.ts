@@ -25,6 +25,17 @@
 
 import { INTERACTIVE_LIMITS } from "@/lib/whatsapp/meta-api";
 
+/** Extract a string from a potentially localized field (string or { en, es }) */
+function localizedText(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+    if (typeof obj.en === 'string') return obj.en;
+    if (typeof obj.es === 'string') return obj.es;
+  }
+  return '';
+}
+
 export interface ValidationIssue {
   severity: "error" | "warning";
   scope: "flow" | "trigger" | "node";
@@ -212,8 +223,8 @@ function validateNode(
     }
 
     case "send_message": {
-      const cfg = node.config as { text?: string; next_node_key?: string };
-      if (!cfg.text?.trim()) {
+      const cfg = node.config as { text?: string | { en?: string; es?: string }; next_node_key?: string };
+      if (!localizedText(cfg.text).trim()) {
         issues.push({
           severity: "error",
           scope: "node",
@@ -303,14 +314,14 @@ function validateNode(
 
     case "send_buttons": {
       const cfg = node.config as {
-        text?: string;
+        text?: string | { en?: string; es?: string };
         buttons?: Array<{
           reply_id?: string;
-          title?: string;
+          title?: string | { en?: string; es?: string };
           next_node_key?: string;
         }>;
       };
-      if (!cfg.text?.trim()) {
+      if (!localizedText(cfg.text).trim()) {
         issues.push({
           severity: "error",
           scope: "node",
@@ -360,7 +371,8 @@ function validateNode(
         }
         if (b.reply_id) seenIds.add(b.reply_id);
 
-        if (!b.title?.trim()) {
+        const titleText = typeof b.title === 'string' ? b.title : b.title?.en || b.title?.es || '';
+        if (!titleText?.trim()) {
           issues.push({
             severity: "error",
             scope: "node",
@@ -368,7 +380,7 @@ function validateNode(
             field: `${field}.title`,
             message: `Button ${i + 1} needs a title.`,
           });
-        } else if (b.title.length > INTERACTIVE_LIMITS.buttonTitleMaxLength) {
+        } else if (titleText.length > INTERACTIVE_LIMITS.buttonTitleMaxLength) {
           issues.push({
             severity: "error",
             scope: "node",
@@ -401,19 +413,19 @@ function validateNode(
 
     case "send_list": {
       const cfg = node.config as {
-        text?: string;
-        button_label?: string;
+        text?: string | { en?: string; es?: string };
+        button_label?: string | { en?: string; es?: string };
         sections?: Array<{
-          title?: string;
+          title?: string | { en?: string; es?: string };
           rows?: Array<{
             reply_id?: string;
-            title?: string;
-            description?: string;
+            title?: string | { en?: string; es?: string };
+            description?: string | { en?: string; es?: string };
             next_node_key?: string;
           }>;
         }>;
       };
-      if (!cfg.text?.trim()) {
+      if (!localizedText(cfg.text).trim()) {
         issues.push({
           severity: "error",
           scope: "node",
@@ -422,7 +434,7 @@ function validateNode(
           message: "Send-list node needs a text body.",
         });
       }
-      if (!cfg.button_label?.trim()) {
+      if (!localizedText(cfg.button_label).trim()) {
         issues.push({
           severity: "error",
           scope: "node",
@@ -478,7 +490,8 @@ function validateNode(
           }
           if (row.reply_id) seenIds.add(row.reply_id);
 
-          if (!row.title?.trim()) {
+          const rowTitle = localizedText(row.title);
+          if (!rowTitle.trim()) {
             issues.push({
               severity: "error",
               scope: "node",
@@ -487,7 +500,7 @@ function validateNode(
               message: `Row ${ri + 1} needs a title.`,
             });
           } else if (
-            row.title.length > INTERACTIVE_LIMITS.listRowTitleMaxLength
+            rowTitle.length > INTERACTIVE_LIMITS.listRowTitleMaxLength
           ) {
             issues.push({
               severity: "error",
@@ -497,9 +510,10 @@ function validateNode(
               message: `Row ${ri + 1} title exceeds ${INTERACTIVE_LIMITS.listRowTitleMaxLength} chars.`,
             });
           }
+          const rowDesc = localizedText(row.description);
           if (
-            row.description &&
-            row.description.length >
+            rowDesc &&
+            rowDesc.length >
               INTERACTIVE_LIMITS.listRowDescriptionMaxLength
           ) {
             issues.push({
@@ -534,11 +548,11 @@ function validateNode(
 
     case "collect_input": {
       const cfg = node.config as {
-        prompt_text?: string;
+        prompt_text?: string | { en?: string; es?: string };
         var_key?: string;
         next_node_key?: string;
       };
-      if (!cfg.prompt_text?.trim()) {
+      if (!localizedText(cfg.prompt_text).trim()) {
         issues.push({
           severity: "error",
           scope: "node",
