@@ -371,10 +371,10 @@ async function sendButtonsAndSuspend(
     userId: run.user_id,
     conversationId: run.conversation_id!,
     contactId: run.contact_id!,
-    bodyText: cfg.text,
-    headerText: cfg.header_text,
-    footerText: cfg.footer_text,
-    buttons: cfg.buttons.map((b) => ({ id: b.reply_id, title: b.title })),
+    bodyText: cfg.text as string,
+    headerText: cfg.header_text as string | undefined,
+    footerText: cfg.footer_text as string | undefined,
+    buttons: cfg.buttons.map((b) => ({ id: b.reply_id, title: b.title as string })),
   });
   await logEvent(db, run.id, "message_sent", node.node_key, {
     node_type: "send_buttons",
@@ -408,16 +408,16 @@ async function sendListAndSuspend(
     userId: run.user_id,
     conversationId: run.conversation_id!,
     contactId: run.contact_id!,
-    bodyText: cfg.text,
-    buttonLabel: cfg.button_label,
-    headerText: cfg.header_text,
-    footerText: cfg.footer_text,
+    bodyText: cfg.text as string,
+    buttonLabel: cfg.button_label as string,
+    headerText: cfg.header_text as string | undefined,
+    footerText: cfg.footer_text as string | undefined,
     sections: cfg.sections.map((s) => ({
-      title: s.title,
+      title: s.title as string | undefined,
       rows: s.rows.map((r) => ({
         id: r.reply_id,
-        title: r.title,
-        description: r.description,
+        title: r.title as string,
+        description: r.description as string | undefined,
       })),
     })),
   });
@@ -615,7 +615,7 @@ async function advanceFromNodeKey(
     userId: run.user_id,
           conversationId: run.conversation_id!,
           contactId: run.contact_id!,
-          text: interpolateVars(cfg.text, run.vars),
+          text: interpolateVars(cfg.text as string, run.vars),
         });
         await logEvent(db, run.id, "message_sent", node.node_key, {
           node_type: "send_message",
@@ -673,7 +673,7 @@ async function advanceFromNodeKey(
     userId: run.user_id,
           conversationId: run.conversation_id!,
           contactId: run.contact_id!,
-          text: interpolateVars(cfg.prompt_text, run.vars),
+          text: interpolateVars(cfg.prompt_text as string, run.vars),
         });
         await logEvent(db, run.id, "message_sent", node.node_key, {
           node_type: "collect_input",
@@ -1087,7 +1087,7 @@ async function handleReplyForActiveRun(
     userId: run.user_id,
           conversationId: run.conversation_id!,
           contactId: run.contact_id!,
-          text: interpolateVars(cfg.prompt_text, run.vars),
+          text: interpolateVars(cfg.prompt_text as string, run.vars),
         });
       } catch (err) {
         await logEvent(db, run.id, "error", currentNode.node_key, {

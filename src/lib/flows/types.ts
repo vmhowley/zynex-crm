@@ -29,7 +29,7 @@ export interface StartNodeConfig {
 
 export interface SendMessageNodeConfig {
   /** Plain text sent to the customer; can interpolate {{vars.X}}. */
-  text: string;
+  text: string | { en: string; es: string };
   /** Auto-advance target after the message lands at Meta. */
   next_node_key: string;
 }
@@ -99,7 +99,7 @@ export interface SendMediaNodeConfig {
 
 export interface HandoffNodeConfig {
   /** Optional internal note written to flow_run_events.payload.note. */
-  note?: string;
+  note?: string | { en: string; es: string };
   /**
    * Optional agent user_id to assign on the conversation when this
    * node fires. Leave unset to flip the status without assignment.
