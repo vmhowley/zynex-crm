@@ -469,24 +469,15 @@ async function executeHandoff(
     assigned_to: cfg.assign_to ?? null,
   });
   if (contactId && cfg.note) {
-    console.log("[executeHandoff] INSERTING NOTE:", {
-      contactId,
-      user_id: run.user_id,
-      note: cfg.note,
-      nodeKey: node.node_key,
-    });
     const { error: noteErr } = await db.from("contact_notes").insert({
       contact_id: contactId,
       user_id: run.user_id,
+      account_id: run.account_id,
       note_text: `[Flow handoff · ${node.node_key}] ${cfg.note}`,
     });
     if (noteErr) {
       console.error("[executeHandoff] contact_notes insert failed:", noteErr);
-    } else {
-      console.log("[executeHandoff] NOTE INSERTED OK");
     }
-  } else {
-    console.log("[executeHandoff] SKIPPING NOTE:", { contactId, note: cfg.note });
   }
   await endRun(db, run.id, "handed_off", "handoff_node");
 }
