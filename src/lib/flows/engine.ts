@@ -473,7 +473,7 @@ async function executeHandoff(
       contact_id: contactId,
       user_id: run.user_id,
       account_id: run.account_id,
-      note_text: `[Flow handoff · ${node.node_key}] ${cfg.note}`,
+      note_text: `[Flow handoff · ${node.node_key}] ${interpolateVars(cfg.note, run.vars)}`,
     });
     if (noteErr) {
       console.error("[executeHandoff] contact_notes insert failed:", noteErr);
