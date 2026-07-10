@@ -467,36 +467,6 @@ const LEAD_QUALIFICATION: FlowTemplate = {
     },
 
     // ════════════════════════════════════════════════════════
-    // PATH D — FEATURES
-    // ════════════════════════════════════════════════════════
-    {
-      node_key: "features_path",
-      node_type: "send_message",
-      config: {
-        text: { en: "📖 **DigitBill features:**\n\n✅ **Electronic Invoicing (e-CF)**\nAutomatic XML generation and submission to DGII. Digital signature with your certificate.\n\n📋 **CRM & Clients**\nDetailed client profiles, account status, and payment tracking.\n\n📦 **Product Catalog**\nManage prices, categories, and taxes (ITBIS) easily.\n\n📊 **Inventory Control**\nReal-time stock alerts and low inventory warnings.\n\n💸 **Expenses & Suppliers**\nComplete purchase and expense records for financial control.\n\n🚗 **Specialized Modules**\n• Vehicles (VIN tracking, cost history)\n• Workshops (work orders, repair status)\n• Maintenance (preventive tasks)\n\n📈 **Smart Dashboard**\nKPIs, monthly sales, and financial summaries at a glance.\n\n🌐 **Cloud Access**\nAvailable 24/7 from any device.\n\nWant to see it in action?", es: "📖 **Características de DigitBill:**\n\n✅ **Facturación Electrónica (e-CF)**\nGeneración y envío automático de XML a la DGII. Firma digital con tu certificado.\n\n📋 **CRM y Clientes**\nPerfiles detallados, estados de cuenta y seguimiento de pagos.\n\n📦 **Catálogo de Productos**\nGestiona precios, categorías e impuestos (ITBIS) fácilmente.\n\n📊 **Control de Inventario**\nAlertas de stock en tiempo real y advertencias de inventario bajo.\n\n💸 **Gastos y Proveedores**\nRegistro completo de compras y gastos para control financiero.\n\n🚗 **Módulos Especializados**\n• Vehículos (rastreo VIN, historial de costos)\n• Talleres (órdenes de trabajo, estado de reparaciones)\n• Mantenimiento (tareas preventivas)\n\n📈 **Dashboard Inteligente**\nKPIs, ventas mensuales y resúmenes financieros de un vistazo.\n\n🌐 **Acceso en la Nube**\nDisponible 24/7 desde cualquier dispositivo.\n\n¿Quieres verlo en acción?" },
-        next_node_key: "features_cta",
-      } as SendMessageNodeConfig,
-    },
-    {
-      node_key: "features_cta",
-      node_type: "send_buttons",
-      config: {
-        text: { en: "Ready to try it?", es: "¿Listo para probarlo?" },
-        buttons: [
-          { reply_id: "features_demo", title: { en: "📊 Try demo", es: "📊 Probar demo" }, next_node_key: "demo_intro" },
-          { reply_id: "features_contact", title: { en: "💬 Contact sales", es: "💬 Contactar ventas" }, next_node_key: "features_handoff" },
-        ],
-      } as SendButtonsNodeConfig,
-    },
-    {
-      node_key: "features_handoff",
-      node_type: "handoff",
-      config: {
-        note: { en: "📖 FEATURES INTEREST — contact={{contact.name}}, phone={{contact.phone}}. Wants to learn more about DigitBill features. Follow up promptly.", es: "📖 INTERÉS EN CARACTERÍSTICAS — contacto={{contact.name}}, teléfono={{contact.phone}}. Quiere saber más sobre las características de DigitBill. Seguimiento prompto." },
-      } as HandoffNodeConfig,
-    },
-
-    // ════════════════════════════════════════════════════════
     // PATH B — SUPPORT
     // ════════════════════════════════════════════════════════
     {
