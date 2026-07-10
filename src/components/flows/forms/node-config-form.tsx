@@ -206,6 +206,16 @@ export function NodeConfigForm({
           complete. No config needed.
         </p>
       );
+
+    case "http_fetch":
+      return (
+        <HttpFetchForm
+          cfg={cfg as HttpFetchCfg}
+          allNodes={allNodes}
+          currentKey={node.node_key}
+          onUpdateConfig={onUpdateConfig}
+        />
+      );
   }
 }
 
@@ -811,6 +821,81 @@ function SetTagForm({
             />
           )}
         </div>
+      </div>
+      <NextNodeRow
+        value={cfg.next_node_key ?? ""}
+        allNodes={allNodes}
+        currentKey={currentKey}
+        onChange={(v) => onUpdateConfig({ next_node_key: v })}
+        label="Then advance to"
+      />
+    </>
+  );
+}
+
+// ============================================================
+
+interface HttpFetchCfg {
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  url?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  next_node_key?: string;
+}
+
+function HttpFetchForm({
+  cfg,
+  allNodes,
+  currentKey,
+  onUpdateConfig,
+}: {
+  cfg: HttpFetchCfg;
+  allNodes: BuilderNode[];
+  currentKey: string;
+  onUpdateConfig: (patch: Record<string, unknown>) => void;
+}) {
+  const methods = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
+
+  return (
+    <>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">Method</label>
+          <Select
+            value={cfg.method ?? "POST"}
+            onValueChange={(v) =>
+              onUpdateConfig({ method: v as HttpFetchCfg["method"] })
+            }
+          >
+            <SelectTrigger className="bg-muted">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {methods.map((m) => (
+                <SelectItem key={m} value={m}>
+                  {m}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">URL</label>
+          <Input
+            value={cfg.url ?? ""}
+            onChange={(e) => onUpdateConfig({ url: e.target.value })}
+            placeholder="https://api.example.com/endpoint"
+            className="bg-muted font-mono text-xs"
+          />
+        </div>
+      </div>
+      <div className="mt-3">
+        <TextRow
+          label="Body (optional — supports {{vars.X}} interpolation)"
+          value={cfg.body ?? ""}
+          onChange={(v) => onUpdateConfig({ body: v })}
+          rows={3}
+        />
       </div>
       <NextNodeRow
         value={cfg.next_node_key ?? ""}
