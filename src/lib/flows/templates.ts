@@ -410,18 +410,32 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_type: "send_message",
       config: {
         text: "✅ Got it, {{vars.contact_name}}! We'll reach out within 2 hours. You'll receive a confirmation at {{vars.email}}.",
-        next_node_key: "pending_digitbill",
+        next_node_key: "create_digitbill_lead",
       } as SendMessageNodeConfig,
     },
-    // Tag: triggers automation to create DigitBill account via webhook
+    // HTTP Fetch: creates lead in external CRM (e.g. DigitBill)
+    // ADAPT: Replace the URL with your external CRM's lead capture endpoint.
+    // Body uses {{vars.X}} interpolation to send captured data.
     {
-      node_key: "pending_digitbill",
-      node_type: "set_tag",
+      node_key: "create_digitbill_lead",
+      node_type: "http_fetch",
       config: {
-        mode: "add",
-        tag_id: "{PENDING_DIGITBILL_TAG}",
+        method: "POST",
+        url: "https://api.digitbill.do/api/public/crm/leads",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer {YOUR_API_KEY}",
+        },
+        body: JSON.stringify({
+          name: "{{vars.contact_name}}",
+          email: "{{vars.email}}",
+          phone: "{{vars.phone}}",
+          company: "{{vars.company}}",
+          rnc: "{{vars.rnc}}",
+          source: "zynex_crm",
+        }),
         next_node_key: "demo_handoff",
-      } as SetTagNodeConfig,
+      } as unknown as HttpFetchNodeConfig,
     },
     {
       node_key: "demo_handoff",
