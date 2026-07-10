@@ -510,141 +510,53 @@ const LEAD_QUALIFICATION: FlowTemplate = {
 };
 
 // ============================================================
-// 5. Customer Onboarding — generic checklist for any business
+// 5. Customer Onboarding — DigitBill quick start guide
 // ============================================================
-// ADAPT THIS TEMPLATE: Replace every step instruction with your own.
-// This is a skeleton — edit the text, change step names, add/remove
-// steps to match your product's setup process.
 const CUSTOMER_ONBOARDING: FlowTemplate = {
   slug: "customer_onboarding",
   name: "Customer Onboarding",
   description:
-    "A checklist-style onboarding flow. Guides new customers through setup steps with a confirmation at each one. Adapt the steps and instructions to any product.",
+    "Welcome new DigitBill customers and guide them through the first steps: configure company, add products, and start invoicing.",
   icon: "CheckSquare",
   trigger_type: "keyword",
-  trigger_config: { keywords: ["onboarding", "get started", "setup"], match_type: "contains" },
+  trigger_config: { keywords: ["onboarding", "get started", "setup", "bienvenida"], match_type: "contains" },
   entry_node_id: "start",
   nodes: [
     // ── Entry ────────────────────────────────────────────────
     {
       node_key: "start",
       node_type: "start",
-      config: { next_node_key: "checklist" },
+      config: { next_node_key: "welcome" },
     },
-    // ── Main checklist ───────────────────────────────────────
+    // ── Welcome ─────────────────────────────────────────────
     {
-      node_key: "checklist",
-      node_type: "send_list",
+      node_key: "welcome",
+      node_type: "send_message",
       config: {
-        header_text: "🎯 Your setup checklist",
-        text: "You have 4 steps to get started. Which shall we begin with?",
-        button_label: "View steps",
-        sections: [
-          {
-            title: "📋 Step 1",
-            rows: [
-              { reply_id: "step1", title: "Set up your profile", description: "Add your business info and preferences", next_node_key: "step_1" },
-            ],
-          },
-          {
-            title: "📁 Step 2",
-            rows: [
-              { reply_id: "step2", title: "Add your first item", description: "Add a product, service, or data entry", next_node_key: "step_2" },
-            ],
-          },
-          {
-            title: "👥 Step 3",
-            rows: [
-              { reply_id: "step3", title: "Invite your team", description: "Add colleagues and assign roles", next_node_key: "step_3" },
-            ],
-          },
-          {
-            title: "🚀 Step 4",
-            rows: [
-              { reply_id: "step4", title: "Complete first action", description: "Send, create, or configure your first item", next_node_key: "step_4" },
-            ],
-          },
+        text: { en: "👋 Welcome! We're excited to have you on board.\n\nHere are your first 3 steps to get started:\n\n1️⃣ Configure your company\n   → digitbillrd.com/settings\n\n2️⃣ Create your first product\n   → digitbillrd.com/products\n\n3️⃣ Start invoicing\n   → digitbillrd.com/invoices\n\nNeed help? Just reply with \"support\" and we'll assist you.", es: "👋 ¡Bienvenido! Nos alegra tenerte aquí.\n\nEstos son tus primeros 3 pasos para empezar:\n\n1️⃣ Configura tu empresa\n   → digitbillrd.com/settings\n\n2️⃣ Crea tu primer producto\n   → digitbillrd.com/products\n\n3️⃣ Empieza a facturar\n   → digitbillrd.com/invoices\n\n¿Necesitas ayuda? Responde con \"soporte\" y te ayudamos." },
+        next_node_key: "support_option",
+      } as SendMessageNodeConfig,
+    },
+    // ── Support option ─────────────────────────────────────
+    {
+      node_key: "support_option",
+      node_type: "send_buttons",
+      config: {
+        text: { en: "Did you need help with anything?", es: "¿Necesitas ayuda con algo?" },
+        footer_text: { en: "We're here for you", es: "Estamos para ayudarte" },
+        buttons: [
+          { reply_id: "yes_support", title: { en: "💬 Talk to support", es: "💬 Hablar con soporte" }, next_node_key: "support_handoff" },
+          { reply_id: "no_help", title: { en: "✅ All set!", es: "✅ ¡Todo listo!" }, next_node_key: "end" },
         ],
-      } as SendListNodeConfig,
-    },
-
-    // ── Step 1 ────────────────────────────────────────────────
-    {
-      node_key: "step_1",
-      node_type: "send_message",
-      config: {
-        text: "📋 Step 1: Set up your profile.\n\n[Replace this with your own instructions — e.g.]\n1. Go to Settings → Profile\n2. Enter your business name, address, and contact info\n3. Save\n\nWhen done, type 'done' to continue ✅",
-        next_node_key: "wait_1",
-      } as SendMessageNodeConfig,
+      } as SendButtonsNodeConfig,
     },
     {
-      node_key: "wait_1",
-      node_type: "collect_input",
+      node_key: "support_handoff",
+      node_type: "handoff",
       config: {
-        prompt_text: "Type 'done' when Step 1 is complete:",
-        var_key: "step1_done",
-        next_node_key: "step_2",
-      } as CollectInputNodeConfig,
+        note: { en: "🏆 ONBOARDING — contact={{contact.name}}, phone={{contact.phone}}. New user needs help getting started with DigitBill setup.", es: "🏆 ONBOARDING — contacto={{contact.name}}, teléfono={{contact.phone}}. Nuevo usuario necesita ayuda para comenzar con la configuración de DigitBill." },
+      } as HandoffNodeConfig,
     },
-
-    // ── Step 2 ────────────────────────────────────────────────
-    {
-      node_key: "step_2",
-      node_type: "send_message",
-      config: {
-        text: "📁 Step 2: Add your first item.\n\n[Replace with your own — e.g. for CRM: add first contact. For invoicing: add first product.]\n1. Go to [Your Module]\n2. Click Add / New\n3. Fill in the required fields\n4. Save\n\nType 'done' when ready ✅",
-        next_node_key: "wait_2",
-      } as SendMessageNodeConfig,
-    },
-    {
-      node_key: "wait_2",
-      node_type: "collect_input",
-      config: {
-        prompt_text: "Type 'done' when Step 2 is complete:",
-        var_key: "step2_done",
-        next_node_key: "step_3",
-      } as CollectInputNodeConfig,
-    },
-
-    // ── Step 3 ────────────────────────────────────────────────
-    {
-      node_key: "step_3",
-      node_type: "send_message",
-      config: {
-        text: "👥 Step 3: Invite your team.\n\n[Replace with your own — e.g.]\n1. Go to Settings → Team\n2. Enter your colleagues' emails\n3. Assign roles: Admin, Editor, or Viewer\n\nDelegating tasks helps you focus on what matters. Type 'done' when ready ✅",
-        next_node_key: "wait_3",
-      } as SendMessageNodeConfig,
-    },
-    {
-      node_key: "wait_3",
-      node_type: "collect_input",
-      config: {
-        prompt_text: "Type 'done' when Step 3 is complete:",
-        var_key: "step3_done",
-        next_node_key: "step_4",
-      } as CollectInputNodeConfig,
-    },
-
-    // ── Step 4 ────────────────────────────────────────────────
-    {
-      node_key: "step_4",
-      node_type: "send_message",
-      config: {
-        text: "🚀 Step 4: Complete your first action.\n\n[Replace with the key action your product enables — e.g. send first invoice, create first deal, post first update.]\n1. Go to [Module]\n2. Click [Action]\n3. Fill in the details\n4. Submit\n\nYou're almost done! Type 'done' to finish ✅",
-        next_node_key: "complete",
-      } as SendMessageNodeConfig,
-    },
-
-    // ── Completion ────────────────────────────────────────────
-    {
-      node_key: "complete",
-      node_type: "send_message",
-      config: {
-        text: "🎉 You're all set!\n\nYour account is ready to go:\n✅ Profile configured\n✅ First item added\n✅ Team invited\n✅ First action completed\n\nTip: explore the dashboard to discover more features as you need them.\n\nNeed help? Just type 'support' and we'll assist you.",
-        next_node_key: "end",
-      } as SendMessageNodeConfig,
-    },
-
     // ── Terminal ─────────────────────────────────────────────
     {
       node_key: "end",
