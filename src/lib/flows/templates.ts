@@ -390,148 +390,108 @@ const LEAD_QUALIFICATION: FlowTemplate = {
     },
 
     // ════════════════════════════════════════════════════════
-    // PATH A — DEMO
+    // PATH A — DEMO (Self-service: demo without registration OR create account)
     // ════════════════════════════════════════════════════════
     {
       node_key: "demo_intro",
       node_type: "send_message",
       config: {
-        text: { en: "Great choice! 📊 I'll set up a personalized demo for you. Let me ask a few quick questions.", es: "¡Gran elección! 📊 Te prepararé una demo personalizada. Déjame hacerte unas preguntas rápidas." },
-        next_node_key: "demo_company",
+        text: { en: "Great! 📊 We have two options for you to explore:", es: "¡Genial! 📊 Tenemos dos opciones para que explores:" },
+        next_node_key: "demo_options",
       } as SendMessageNodeConfig,
     },
     {
-      node_key: "demo_company",
-      node_type: "collect_input",
+      node_key: "demo_options",
+      node_type: "send_buttons",
       config: {
-        prompt_text: { en: "What's your company name?", es: "¿Cuál es el nombre de tu empresa?" },
-        var_key: "company",
-        next_node_key: "demo_contact",
-      } as CollectInputNodeConfig,
+        text: { en: "How would you like to try DigitBill?", es: "¿Cómo prefieres probar DigitBill?" },
+        footer_text: { en: "Choose an option to continue", es: "Elige una opción para continuar" },
+        buttons: [
+          { reply_id: "demo_link", title: { en: "📱 Try demo (no signup)", es: "📱 Probar demo (sin registro)" }, next_node_key: "demo_link_send" },
+          { reply_id: "create_account", title: { en: "✅ Create my account", es: "✅ Crear mi cuenta" }, next_node_key: "create_account_info" },
+        ],
+      } as SendButtonsNodeConfig,
     },
     {
-      node_key: "demo_contact",
-      node_type: "collect_input",
-      config: {
-        prompt_text: { en: "And what's your name?", es: "¿Y tu nombre?" },
-        var_key: "contact_name",
-        next_node_key: "demo_email",
-      } as CollectInputNodeConfig,
-    },
-    {
-      node_key: "demo_email",
-      node_type: "collect_input",
-      config: {
-        prompt_text: { en: "Last step — what's your email address?", es: "Último paso — ¿cuál es tu correo electrónico?" },
-        var_key: "email",
-        next_node_key: "demo_score_check",
-      } as CollectInputNodeConfig,
-    },
-    // Lead scoring — company provided = high priority
-    {
-      node_key: "demo_score_check",
-      node_type: "condition",
-      config: {
-        subject: "var",
-        subject_key: "company",
-        operator: "present",
-        true_next: "score_high",
-        false_next: "score_medium",
-      } as ConditionNodeConfig,
-    },
-    {
-      node_key: "score_high",
-      node_type: "set_tag",
-      config: {
-        mode: "add",
-        tag_id: "{HIGH_PRIORITY_TAG}",
-        next_node_key: "demo_confirm",
-      } as SetTagNodeConfig,
-    },
-    {
-      node_key: "score_medium",
-      node_type: "set_tag",
-      config: {
-        mode: "add",
-        tag_id: "{MEDIUM_PRIORITY_TAG}",
-        next_node_key: "demo_confirm",
-      } as SetTagNodeConfig,
-    },
-    {
-      node_key: "demo_confirm",
+      node_key: "demo_link_send",
       node_type: "send_message",
       config: {
-        text: { en: "✅ Got it, {{vars.contact_name}}! We'll reach out within 2 hours. You'll receive a confirmation at {{vars.email}}.", es: "✅ Perfecto, {{vars.contact_name}}! Te contactaremos en 2 horas. Recibirás una confirmación en {{vars.email}}." },
-        next_node_key: "create_digitbill_lead",
+        text: { en: "🎉 Perfect! Here's your demo link:\n\n👉 digitbillrd.com/demo\n\nSelect the profile that best fits your business (Retail, Ferretería, or Taller) and explore freely. No account or credit card needed.\n\nIf you need help, just let us know! 😊", es: "🎉 ¡Perfecto! Este es tu link de demo:\n\n👉 digitbillrd.com/demo\n\nSelecciona el perfil que mejor se adapte a tu negocio (Retail, Ferretería o Taller) y navega libremente. No necesitas cuenta ni tarjeta.\n\n¡Si necesitas ayuda, aquí estamos! 😊" },
+        next_node_key: "demo_handoff",
       } as SendMessageNodeConfig,
     },
-    // HTTP Fetch: creates account in DigitBill and sends credentials via email
-    // ADAPT: Replace the URL with your DigitBill API endpoint.
-    // Body uses {{vars.X}} interpolation to send captured data.
     {
-      node_key: "create_digitbill_lead",
-      node_type: "http_fetch",
+      node_key: "create_account_info",
+      node_type: "send_message",
       config: {
-        method: "POST",
-        url: "https://api.digitbill.do/api/auth/public/register",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          full_name: "{{vars.contact_name}}",
-          email: "{{vars.email}}",
-          phone: "{{vars.phone}}",
-          company_name: "{{vars.company}}",
-          plan: "pyme",
-        }),
-        next_node_key: "demo_handoff",
-      } as unknown as HttpFetchNodeConfig,
+        text: { en: "✅ Great choice! Creating your account is quick and easy:\n\n1️⃣ Go to: digitbillrd.com/register\n2️⃣ Fill in your basic info (RNC optional)\n3️⃣ Start using DigitBill right away\n\n💡 Tip: Have your RNC ready if you want to set up invoicing right away.\n\nNeed help? An agent can guide you through the process. Just ask!", es: "✅ ¡Gran elección! Crear tu cuenta es rápido y fácil:\n\n1️⃣ Ve a: digitbillrd.com/register\n2️⃣ Llena tu información básica (RNC opcional)\n3️⃣ ¡Empieza a usar DigitBill de inmediato!\n\n💡 Tip: Ten tu RNC a la mano si quieres configurar la facturación desde el inicio.\n\n¿Necesitas ayuda? Un agente puede guiarte paso a paso. ¡Solo pregunta!" },
+        next_node_key: "create_account_confirm",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "create_account_confirm",
+      node_type: "send_buttons",
+      config: {
+        text: { en: "Did you manage to create your account?", es: "¿Pudiste crear tu cuenta?" },
+        footer_text: { en: "We're here to help", es: "Estamos para ayudarte" },
+        buttons: [
+          { reply_id: "account_done", title: { en: "✅ Yes, I'm in!", es: "✅ ¡Sí, estoy dentro!" }, next_node_key: "account_done" },
+          { reply_id: "need_help", title: { en: "💬 I need help", es: "💬 Necesito ayuda" }, next_node_key: "demo_handoff" },
+        ],
+      } as SendButtonsNodeConfig,
+    },
+    {
+      node_key: "account_done",
+      node_type: "send_message",
+      config: {
+        text: { en: "🎉 Welcome aboard, {{contact.name}}!\n\nWe're so glad you're here. If you have any questions as you explore DigitBill, don't hesitate to reach out. Happy to help! 🚀", es: "🎉 ¡Bienvenido/a, {{contact.name}}!\n\nNos alegra que estés aquí. Si tienes alguna pregunta mientras exploras DigitBill, no dudes en escribirnos. ¡Con gusto te ayudamos! 🚀" },
+        next_node_key: "end",
+      } as SendMessageNodeConfig,
     },
     {
       node_key: "demo_handoff",
       node_type: "handoff",
       config: {
-        note: { en: "📊 DEMO REQUEST — company={{vars.company}}, contact={{vars.contact_name}}, email={{vars.email}}. High-interest lead. Schedule demo call.", es: "📊 SOLICITUD DE DEMO — empresa={{vars.company}}, contacto={{vars.contact_name}}, email={{vars.email}}. Lead de alto interés. Agendar llamada de demo." },
+        note: { en: "📊 DEMO INTEREST — contact={{contact.name}}, phone={{contact.phone}}. Needs help with demo or account creation. Follow up promptly.", es: "📊 INTERÉS EN DEMO — contacto={{contact.name}}, teléfono={{contact.phone}}. Necesita ayuda con demo o creación de cuenta. Seguimiento prompto." },
       } as HandoffNodeConfig,
     },
 
     // ════════════════════════════════════════════════════════
-    // PATH B — TRIAL
+    // PATH B — TRIAL (same as DEMO, self-service)
     // ════════════════════════════════════════════════════════
     {
       node_key: "trial_intro",
       node_type: "send_message",
       config: {
-        text: { en: "Awesome! 🚀 Let's get you set up with a free trial. Quick question first.", es: "¡Genial! 🚀 Vamos a configurarte una prueba gratuita. Primero una pregunta rápida." },
-        next_node_key: "trial_company",
+        text: { en: "Awesome! 🚀 We have two options for you to get started:", es: "¡Genial! 🚀 Tenemos dos opciones para que empieces:" },
+        next_node_key: "trial_options",
       } as SendMessageNodeConfig,
     },
     {
-      node_key: "trial_company",
-      node_type: "collect_input",
-      config: {
-        prompt_text: { en: "What's your company name?", es: "¿Cuál es el nombre de tu empresa?" },
-        var_key: "company",
-        next_node_key: "trial_agree",
-      } as CollectInputNodeConfig,
-    },
-    {
-      node_key: "trial_agree",
+      node_key: "trial_options",
       node_type: "send_buttons",
       config: {
-        text: { en: "To start your trial, we just need your consent. Do you agree?", es: "Para iniciar tu prueba, solo necesitamos tu consentimiento. ¿Aceptas?" },
-        footer_text: { en: "You can cancel anytime.", es: "Puedes cancelar en cualquier momento." },
+        text: { en: "How would you like to try DigitBill?", es: "¿Cómo prefieres probar DigitBill?" },
+        footer_text: { en: "Choose an option to continue", es: "Elige una opción para continuar" },
         buttons: [
-          { reply_id: "accept", title: { en: "✅ Yes, continue", es: "✅ Sí, continuar" }, next_node_key: "trial_confirm" },
-          { reply_id: "later", title: { en: "⏳ Maybe later", es: "⏳ Quizás después" }, next_node_key: "trial_decline" },
+          { reply_id: "trial_link", title: { en: "📱 Try first (no signup)", es: "📱 Probar primero (sin registro)" }, next_node_key: "trial_link_send" },
+          { reply_id: "trial_create", title: { en: "✅ Create my account", es: "✅ Crear mi cuenta" }, next_node_key: "trial_account_info" },
         ],
       } as SendButtonsNodeConfig,
     },
     {
-      node_key: "trial_confirm",
+      node_key: "trial_link_send",
       node_type: "send_message",
       config: {
-        text: { en: "🎉 Trial activated! You'll receive your login details shortly. Welcome aboard, {{vars.company}}!", es: "🎉 ¡Prueba activada! Recibirás tus datos de acceso pronto. ¡Bienvenido, {{vars.company}}!" },
+        text: { en: "🎉 Perfect! Here's your trial link:\n\n👉 digitbillrd.com/demo\n\nSelect the profile that best fits your business and explore freely for 14 days. No account or credit card needed.\n\nIf you decide to continue, you can create your account anytime! 😊", es: "🎉 ¡Perfecto! Este es tu link de prueba:\n\n👉 digitbillrd.com/demo\n\nSelecciona el perfil que mejor se adapte a tu negocio y explora libremente por 14 días. No necesitas cuenta ni tarjeta.\n\n¡Si decides continuar, puedes crear tu cuenta cuando quieras! 😊" },
+        next_node_key: "trial_handoff",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "trial_account_info",
+      node_type: "send_message",
+      config: {
+        text: { en: "✅ Great! Creating your account gives you full access for 14 days free:\n\n1️⃣ Go to: digitbillrd.com/register\n2️⃣ Fill in your basic info (RNC optional)\n3️⃣ Enjoy full access to DigitBill\n\n💡 You'll keep all your data if you decide to continue after the trial.\n\nNeed help? An agent can guide you through the process!", es: "✅ ¡Genial! Crear tu cuenta te da acceso completo por 14 días gratis:\n\n1️⃣ Ve a: digitbillrd.com/register\n2️⃣ Llena tu información básica (RNC opcional)\n3️⃣ Disfruta acceso completo a DigitBill\n\n💡 Conservarás todos tus datos si decides continuar después del trial.\n\n¿Necesitas ayuda? ¡Un agente puede guiarte paso a paso!" },
         next_node_key: "trial_handoff",
       } as SendMessageNodeConfig,
     },
@@ -539,16 +499,8 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_key: "trial_handoff",
       node_type: "handoff",
       config: {
-        note: { en: "🚀 TRIAL ACTIVATED — company={{vars.company}}. Set up account, add {TRIAL_TAG}, create deal in sales pipeline.", es: "🚀 PRUEBA ACTIVADA — empresa={{vars.company}}. Configurar cuenta, agregar {TRIAL_TAG}, crear oportunidad en pipeline de ventas." },
+        note: { en: "🚀 TRIAL INTEREST — contact={{contact.name}}, phone={{contact.phone}}. Needs help with trial or account creation. Follow up promptly.", es: "🚀 INTERÉS EN PRUEBA — contacto={{contact.name}}, teléfono={{contact.phone}}. Necesita ayuda con prueba o creación de cuenta. Seguimiento prompto." },
       } as HandoffNodeConfig,
-    },
-    {
-      node_key: "trial_decline",
-      node_type: "send_message",
-      config: {
-        text: { en: "No problem at all. Just message us when you're ready to start your trial. We'll be here! 😊", es: "No hay problema. escríbenos cuando estés listo para comenzar tu prueba. ¡Estaremos aquí! 😊" },
-        next_node_key: "end",
-      } as SendMessageNodeConfig,
     },
 
     // ════════════════════════════════════════════════════════
