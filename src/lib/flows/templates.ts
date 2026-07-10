@@ -81,27 +81,27 @@ export type LocalizedText = string | { en: string; es: string };
 function localizeConfig(config: Record<string, unknown>, lang: Locale): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(config)) {
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
+    if (key === 'buttons' && Array.isArray(value)) {
+      result[key] = (value as Record<string, unknown>[]).map(btn => {
+        if (btn && typeof btn === 'object') {
+          const buttonObj = btn as Record<string, unknown>;
+          const localized: Record<string, unknown> = {};
+          for (const [btnKey, btnVal] of Object.entries(buttonObj)) {
+            if (btnVal && typeof btnVal === 'object' && 'en' in (btnVal as object) && 'es' in (btnVal as object)) {
+              const loc = btnVal as { en: string; es: string };
+              localized[btnKey] = lang === 'es' ? loc.es : loc.en;
+            } else {
+              localized[btnKey] = btnVal;
+            }
+          }
+          return localized;
+        }
+        return btn;
+      });
+    } else if (value && typeof value === 'object' && !Array.isArray(value)) {
       const obj = value as Record<string, unknown>;
       if ('en' in obj && 'es' in obj && typeof obj.en === 'string' && typeof obj.es === 'string') {
         result[key] = lang === 'es' ? obj.es : obj.en;
-      } else if (key === 'buttons' && Array.isArray(obj)) {
-        result[key] = (obj as Record<string, unknown>[]).map(btn => {
-          if (btn && typeof btn === 'object') {
-            const buttonObj = btn as Record<string, unknown>;
-            const localized: Record<string, unknown> = {};
-            for (const [btnKey, btnVal] of Object.entries(buttonObj)) {
-              if (btnVal && typeof btnVal === 'object' && 'en' in (btnVal as object) && 'es' in (btnVal as object)) {
-                const loc = btnVal as { en: string; es: string };
-                localized[btnKey] = lang === 'es' ? loc.es : loc.en;
-              } else {
-                localized[btnKey] = btnVal;
-              }
-            }
-            return localized;
-          }
-          return btn;
-        });
       } else {
         result[key] = localizeConfig(obj, lang);
       }
@@ -383,6 +383,8 @@ const LEAD_QUALIFICATION: FlowTemplate = {
         footer_text: { en: "We'll get back to you right away", es: "Te responderemos pronto" },
         buttons: [
           { reply_id: "demo", title: { en: "📊 Try DigitBill", es: "📊 Probar DigitBill" }, next_node_key: "demo_intro" },
+          { reply_id: "pricing", title: { en: "💰 See pricing", es: "💰 Ver precios" }, next_node_key: "pricing_path" },
+          { reply_id: "features", title: { en: "📖 Learn more", es: "📖 Conocer más" }, next_node_key: "features_path" },
           { reply_id: "support", title: { en: "💬 Talk to support", es: "💬 Hablar con soporte" }, next_node_key: "support_path" },
         ],
       } as SendButtonsNodeConfig,
@@ -432,6 +434,66 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_type: "handoff",
       config: {
         note: { en: "📊 DEMO INTEREST — contact={{contact.name}}, phone={{contact.phone}}. Needs help with demo or account creation. Follow up promptly.", es: "📊 INTERÉS EN DEMO — contacto={{contact.name}}, teléfono={{contact.phone}}. Necesita ayuda con demo o creación de cuenta. Seguimiento prompto." },
+      } as HandoffNodeConfig,
+    },
+
+    // ════════════════════════════════════════════════════════
+    // PATH C — PRICING
+    // ════════════════════════════════════════════════════════
+    {
+      node_key: "pricing_path",
+      node_type: "send_message",
+      config: {
+        text: { en: "💰 Here are our plans:\n\n📦 **Emprendedor** — RD$990/mo\n• 50 electronic invoices/month\n• CRM & product catalog\n• Basic dashboard\n\n🏪 **Pyme** — RD$2,490/mo\n• Unlimited invoices\n• Inventory & expenses\n• Multi-user access\n• Priority support\n\n🚀 **Profesional** — RD$5,990/mo\n• Everything in Pyme\n• Advanced reports\n• API access\n• Dedicated support\n\n🏢 **Enterprise** — RD$15,000/mo\n• Everything in Profesional\n• Custom integrations\n• Personal onboarding\n• SLA guarantee\n\nAll plans include electronic invoicing (e-CF) certified with DGII.\n\nWant to start free? Reply with **demo** to try it!", es: "💰 Aquí están nuestros planes:\n\n📦 **Emprendedor** — RD$990/mes\n• 50 facturas electrónicas/mes\n• CRM y catálogo de productos\n• Dashboard básico\n\n🏪 **Pyme** — RD$2,490/mes\n• Facturas ilimitadas\n• Inventario y gastos\n• Acceso multi-usuario\n• Soporte prioritario\n\n🚀 **Profesional** — RD$5,990/mes\n• Todo lo de Pyme\n• Reportes avanzados\n• Acceso a API\n• Soporte dedicado\n\n🏢 **Enterprise** — RD$15,000/mes\n• Todo lo de Profesional\n• Integraciones personalizadas\n• Onboarding personalizado\n• Garantía SLA\n\nTodos los planes incluyen facturación electrónica (e-CF) certificada con la DGII.\n\n¿ quieres empezar gratis? Responde con **demo** para probarlo!" },
+        next_node_key: "pricing_cta",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "pricing_cta",
+      node_type: "send_buttons",
+      config: {
+        text: { en: "Ready to get started?", es: "¿Listo para comenzar?" },
+        buttons: [
+          { reply_id: "pricing_demo", title: { en: "📊 Try free demo", es: "📊 Probar demo gratis" }, next_node_key: "demo_intro" },
+          { reply_id: "pricing_contact", title: { en: "💬 Talk to sales", es: "💬 Hablar con ventas" }, next_node_key: "pricing_handoff" },
+        ],
+      } as SendButtonsNodeConfig,
+    },
+    {
+      node_key: "pricing_handoff",
+      node_type: "handoff",
+      config: {
+        note: { en: "💰 PRICING INTEREST — contact={{contact.name}}, phone={{contact.phone}}. Wants information about plans. Follow up promptly.", es: "💰 INTERÉS EN PRECIOS — contacto={{contact.name}}, teléfono={{contact.phone}}. Quiere información sobre planes. Seguimiento prompto." },
+      } as HandoffNodeConfig,
+    },
+
+    // ════════════════════════════════════════════════════════
+    // PATH D — FEATURES
+    // ════════════════════════════════════════════════════════
+    {
+      node_key: "features_path",
+      node_type: "send_message",
+      config: {
+        text: { en: "📖 **DigitBill features:**\n\n✅ **Electronic Invoicing (e-CF)**\nAutomatic XML generation and submission to DGII. Digital signature with your certificate.\n\n📋 **CRM & Clients**\nDetailed client profiles, account status, and payment tracking.\n\n📦 **Product Catalog**\nManage prices, categories, and taxes (ITBIS) easily.\n\n📊 **Inventory Control**\nReal-time stock alerts and low inventory warnings.\n\n💸 **Expenses & Suppliers**\nComplete purchase and expense records for financial control.\n\n🚗 **Specialized Modules**\n• Vehicles (VIN tracking, cost history)\n• Workshops (work orders, repair status)\n• Maintenance (preventive tasks)\n\n📈 **Smart Dashboard**\nKPIs, monthly sales, and financial summaries at a glance.\n\n🌐 **Cloud Access**\nAvailable 24/7 from any device.\n\nWant to see it in action?", es: "📖 **Características de DigitBill:**\n\n✅ **Facturación Electrónica (e-CF)**\nGeneración y envío automático de XML a la DGII. Firma digital con tu certificado.\n\n📋 **CRM y Clientes**\nPerfiles detallados, estados de cuenta y seguimiento de pagos.\n\n📦 **Catálogo de Productos**\nGestiona precios, categorías e impuestos (ITBIS) fácilmente.\n\n📊 **Control de Inventario**\nAlertas de stock en tiempo real y advertencias de inventario bajo.\n\n💸 **Gastos y Proveedores**\nRegistro completo de compras y gastos para control financiero.\n\n🚗 **Módulos Especializados**\n• Vehículos (rastreo VIN, historial de costos)\n• Talleres (órdenes de trabajo, estado de reparaciones)\n• Mantenimiento (tareas preventivas)\n\n📈 **Dashboard Inteligente**\nKPIs, ventas mensuales y resúmenes financieros de un vistazo.\n\n🌐 **Acceso en la Nube**\nDisponible 24/7 desde cualquier dispositivo.\n\n¿Quieres verlo en acción?" },
+        next_node_key: "features_cta",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "features_cta",
+      node_type: "send_buttons",
+      config: {
+        text: { en: "Ready to try it?", es: "¿Listo para probarlo?" },
+        buttons: [
+          { reply_id: "features_demo", title: { en: "📊 Try free demo", es: "📊 Probar demo gratis" }, next_node_key: "demo_intro" },
+          { reply_id: "features_contact", title: { en: "💬 Talk to sales", es: "💬 Hablar con ventas" }, next_node_key: "features_handoff" },
+        ],
+      } as SendButtonsNodeConfig,
+    },
+    {
+      node_key: "features_handoff",
+      node_type: "handoff",
+      config: {
+        note: { en: "📖 FEATURES INTEREST — contact={{contact.name}}, phone={{contact.phone}}. Wants to learn more about DigitBill features. Follow up promptly.", es: "📖 INTERÉS EN CARACTERÍSTICAS — contacto={{contact.name}}, teléfono={{contact.phone}}. Quiere saber más sobre las características de DigitBill. Seguimiento prompto." },
       } as HandoffNodeConfig,
     },
 
