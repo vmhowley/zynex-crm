@@ -288,18 +288,19 @@ const LEAD_CAPTURE: FlowTemplate = {
 };
 
 // ============================================================
-// 4. Zynex Lead Nurturing — 3-way routing: Demo / Trial / Soporte
+// 4. Lead Qualification — 3-way routing: Demo / Trial / Support
 // ============================================================
-// NOTE: set_tag nodes use placeholder tag UUIDs. Replace with actual
-// tag IDs from your Zynex CRM tags before activating the flow.
-// Tag IDs: {LEAD_CALIENTE_TAG}, {LEAD_TIBIO_TAG}, {SOPORTE_Q_TAG}
-// These are configured in the tag picker UI in the Flow Builder.
-const ZYNEX_LEAD_NURTURE: FlowTemplate = {
-  slug: "zynex_lead_nurture",
-  name: "Zynex Lead Nurturing",
+// Captures qualified leads and routes them to the right team.
+// Adapt: change company field, add/remove qualification questions,
+// update tag IDs and handoff notes to match your sales process.
+// NOTE: Replace {HIGH_PRIORITY_TAG}, {MEDIUM_PRIORITY_TAG}, {SUPPORT_TAG}
+// with actual tag UUIDs from your CRM tags.
+const LEAD_QUALIFICATION: FlowTemplate = {
+  slug: "lead_qualification",
+  name: "Lead Qualification",
   description:
-    "Captures leads from WhatsApp and routes them through Demo, Trial, or Support paths. Captures company + RNC + contact + email and hands off to the right agent with all data interpolated in the note.",
-  icon: "Zap",
+    "Greet incoming leads and route them through Product Demo, Free Trial, or Support paths. Captures company + contact + email and scores leads by qualification level before handoff.",
+  icon: "TrendingUp",
   trigger_type: "first_inbound_message",
   trigger_config: {},
   entry_node_id: "start",
@@ -314,7 +315,7 @@ const ZYNEX_LEAD_NURTURE: FlowTemplate = {
       node_key: "welcome",
       node_type: "send_message",
       config: {
-        text: "¡Hola! 👋 Bienvenido a Zynex CRM. ¿En qué podemos ayudarte hoy?",
+        text: "Hi there! 👋 How can we help you today?",
         next_node_key: "main_menu",
       } as SendMessageNodeConfig,
     },
@@ -323,12 +324,12 @@ const ZYNEX_LEAD_NURTURE: FlowTemplate = {
       node_key: "main_menu",
       node_type: "send_buttons",
       config: {
-        text: "Selecciona una opción:",
-        footer_text: "Respuesta en minutos ✓",
+        text: "What are you looking for?",
+        footer_text: "We'll get back to you right away",
         buttons: [
-          { reply_id: "demo", title: "📊 Solicitar demo", next_node_key: "demo_intro" },
-          { reply_id: "trial", title: "🚀 Probar gratis 30 días", next_node_key: "trial_intro" },
-          { reply_id: "soporte", title: "🆘 Soporte técnico", next_node_key: "soporte_path" },
+          { reply_id: "demo", title: "📊 Request a demo", next_node_key: "demo_intro" },
+          { reply_id: "trial", title: "🚀 Start free trial", next_node_key: "trial_intro" },
+          { reply_id: "support", title: "💬 Talk to support", next_node_key: "support_path" },
         ],
       } as SendButtonsNodeConfig,
     },
@@ -340,7 +341,7 @@ const ZYNEX_LEAD_NURTURE: FlowTemplate = {
       node_key: "demo_intro",
       node_type: "send_message",
       config: {
-        text: "¡Perfecto! 📊 La demo de Zynex CRM muestra cómo DigitBill + WhatsApp reducen tu workload de facturación electrónica en un 80%.",
+        text: "Great choice! 📊 I'll set up a personalized demo for you. Let me ask a few quick questions.",
         next_node_key: "demo_company",
       } as SendMessageNodeConfig,
     },
@@ -348,17 +349,17 @@ const ZYNEX_LEAD_NURTURE: FlowTemplate = {
       node_key: "demo_company",
       node_type: "collect_input",
       config: {
-        prompt_text: "¿Cuál es el nombre de tu empresa o negocio?",
+        prompt_text: "What's your company name?",
         var_key: "company",
-        next_node_key: "demo_rnc",
+        next_node_key: "demo_contact",
       } as CollectInputNodeConfig,
     },
     {
-      node_key: "demo_rnc",
+      node_key: "demo_contact",
       node_type: "collect_input",
       config: {
-        prompt_text: "Gracias, {{vars.company}}. ¿Tienes RNC o Cédula? (Lo necesitamos para configurar DigitBill en tu cuenta.)",
-        var_key: "rnc",
+        prompt_text: "And what's your name?",
+        var_key: "contact_name",
         next_node_key: "demo_email",
       } as CollectInputNodeConfig,
     },
@@ -366,38 +367,38 @@ const ZYNEX_LEAD_NURTURE: FlowTemplate = {
       node_key: "demo_email",
       node_type: "collect_input",
       config: {
-        prompt_text: "Último paso — ¿cuál es tu correo electrónico?",
+        prompt_text: "Last step — what's your email address?",
         var_key: "email",
         next_node_key: "demo_score_check",
       } as CollectInputNodeConfig,
     },
-    // Lead scoring — check if RNC was provided
+    // Lead scoring — company provided = high priority
     {
       node_key: "demo_score_check",
       node_type: "condition",
       config: {
         subject: "var",
-        subject_key: "rnc",
+        subject_key: "company",
         operator: "present",
-        true_next: "score_alta",
-        false_next: "score_media",
+        true_next: "score_high",
+        false_next: "score_medium",
       } as ConditionNodeConfig,
     },
     {
-      node_key: "score_alta",
+      node_key: "score_high",
       node_type: "set_tag",
       config: {
         mode: "add",
-        tag_id: "{LEAD_CALIENTE_TAG}",
+        tag_id: "{HIGH_PRIORITY_TAG}",
         next_node_key: "demo_confirm",
       } as SetTagNodeConfig,
     },
     {
-      node_key: "score_media",
+      node_key: "score_medium",
       node_type: "set_tag",
       config: {
         mode: "add",
-        tag_id: "{LEAD_TIBIO_TAG}",
+        tag_id: "{MEDIUM_PRIORITY_TAG}",
         next_node_key: "demo_confirm",
       } as SetTagNodeConfig,
     },
@@ -405,7 +406,7 @@ const ZYNEX_LEAD_NURTURE: FlowTemplate = {
       node_key: "demo_confirm",
       node_type: "send_message",
       config: {
-        text: "✅ ¡Listo! Te contactamos en menos de 2 horas. Recibirás un correo de bienvenida en {{vars.email}}.",
+        text: "✅ Got it, {{vars.contact_name}}! We'll reach out within 2 hours. You'll receive a confirmation at {{vars.email}}.",
         next_node_key: "demo_handoff",
       } as SendMessageNodeConfig,
     },
@@ -413,7 +414,7 @@ const ZYNEX_LEAD_NURTURE: FlowTemplate = {
       node_key: "demo_handoff",
       node_type: "handoff",
       config: {
-        note: "🚨 LEAD DEMO — empresa={{vars.company}}, RNC={{vars.rnc}}, email={{vars.email}}. Interesado en ver cómo DigitBill automatiza la e-CF. Prioridad ALTA.",
+        note: "📊 DEMO REQUEST — company={{vars.company}}, contact={{vars.contact_name}}, email={{vars.email}}. High-interest lead. Schedule demo call.",
       } as HandoffNodeConfig,
     },
 
@@ -424,7 +425,7 @@ const ZYNEX_LEAD_NURTURE: FlowTemplate = {
       node_key: "trial_intro",
       node_type: "send_message",
       config: {
-        text: "¡Genial! 🚀 Te damos 30 días con todas las funciones activas — WhatsApp flows, DigitBill, CRM completo. Sin compromiso.",
+        text: "Awesome! 🚀 Let's get you set up with a free trial. Quick question first.",
         next_node_key: "trial_company",
       } as SendMessageNodeConfig,
     },
@@ -432,7 +433,7 @@ const ZYNEX_LEAD_NURTURE: FlowTemplate = {
       node_key: "trial_company",
       node_type: "collect_input",
       config: {
-        prompt_text: "¿Cuál es el nombre de tu empresa?",
+        prompt_text: "What's your company name?",
         var_key: "company",
         next_node_key: "trial_agree",
       } as CollectInputNodeConfig,
@@ -441,11 +442,11 @@ const ZYNEX_LEAD_NURTURE: FlowTemplate = {
       node_key: "trial_agree",
       node_type: "send_buttons",
       config: {
-        text: "Perfecto. Para activar tu trial necesitamos tu consentimiento. ¿Aceptas?",
-        footer_text: "Puedes cancelar cuando quieras.",
+        text: "To start your trial, we just need your consent. Do you agree?",
+        footer_text: "You can cancel anytime.",
         buttons: [
-          { reply_id: "accept", title: "✅ Acepto y continuo", next_node_key: "trial_confirm" },
-          { reply_id: "later", title: "⏳ Después", next_node_key: "trial_decline" },
+          { reply_id: "accept", title: "✅ Yes, continue", next_node_key: "trial_confirm" },
+          { reply_id: "later", title: "⏳ Maybe later", next_node_key: "trial_decline" },
         ],
       } as SendButtonsNodeConfig,
     },
@@ -453,7 +454,7 @@ const ZYNEX_LEAD_NURTURE: FlowTemplate = {
       node_key: "trial_confirm",
       node_type: "send_message",
       config: {
-        text: "🎉 ¡Trial activado! Te enviamos los datos de acceso a tu WhatsApp en minutos. Bienvenido a Zynex CRM, {{vars.company}}.",
+        text: "🎉 Trial activated! You'll receive your login details shortly. Welcome aboard, {{vars.company}}!",
         next_node_key: "trial_handoff",
       } as SendMessageNodeConfig,
     },
@@ -461,60 +462,60 @@ const ZYNEX_LEAD_NURTURE: FlowTemplate = {
       node_key: "trial_handoff",
       node_type: "handoff",
       config: {
-        note: "✅ TRIAL ACTIVADO — empresa={{vars.company}}, contacto={{vars.name}}. Trial 30 días activado. Añadir tag 'trial_activo' y crear deal en pipeline Ventas.",
+        note: "🚀 TRIAL ACTIVATED — company={{vars.company}}. Set up account, add {TRIAL_TAG}, create deal in sales pipeline.",
       } as HandoffNodeConfig,
     },
     {
       node_key: "trial_decline",
       node_type: "send_message",
       config: {
-        text: "Sin problema. Cuando quieras activar tu trial, simplemente escribe 'trial' y te ayudamos. 😊",
+        text: "No problem at all. Just message us when you're ready to start your trial. We'll be here! 😊",
         next_node_key: "end",
       } as SendMessageNodeConfig,
     },
 
     // ════════════════════════════════════════════════════════
-    // PATH C — SOPORTE
+    // PATH C — SUPPORT
     // ════════════════════════════════════════════════════════
     {
-      node_key: "soporte_path",
+      node_key: "support_path",
       node_type: "send_message",
       config: {
-        text: "🆘 Entendido. Nuestro equipo de soporte está activo de Lun–Vier, 9am–6pm (hora RD). Fuera de ese horario respondemos al siguiente día hábil.",
-        next_node_key: "soporte_issue",
+        text: "Of course! 💬 Our support team is here to help. We're available Mon–Fri, 9am–6pm. Outside hours, we'll respond next business day.",
+        next_node_key: "support_issue",
       } as SendMessageNodeConfig,
     },
     {
-      node_key: "soporte_issue",
+      node_key: "support_issue",
       node_type: "collect_input",
       config: {
-        prompt_text: "Cuéntanos brevemente tu problema o consulta:",
+        prompt_text: "Please briefly describe your issue or question:",
         var_key: "issue",
-        next_node_key: "soporte_confirm",
+        next_node_key: "support_confirm",
       } as CollectInputNodeConfig,
     },
     {
-      node_key: "soporte_confirm",
+      node_key: "support_confirm",
       node_type: "send_message",
       config: {
-        text: "Recibido 📝. Un agente te responde en menos de 2 horas. Te notificamos por WhatsApp cuando haya respuesta.",
-        next_node_key: "soporte_tag",
+        text: "Got it 📝 An agent will respond within 2 hours. We'll notify you here on WhatsApp.",
+        next_node_key: "support_tag",
       } as SendMessageNodeConfig,
     },
     {
-      node_key: "soporte_tag",
+      node_key: "support_tag",
       node_type: "set_tag",
       config: {
         mode: "add",
-        tag_id: "{SOPORTE_Q_TAG}",
-        next_node_key: "soporte_handoff",
+        tag_id: "{SUPPORT_TAG}",
+        next_node_key: "support_handoff",
       } as SetTagNodeConfig,
     },
     {
-      node_key: "soporte_handoff",
+      node_key: "support_handoff",
       node_type: "handoff",
       config: {
-        note: "🆘 SOPORTE — contacto={{vars.name}}, problema={{vars.issue}}. Consulta de soporte — clasificar por categoría (DigitBill / WhatsApp / CRM).",
+        note: "💬 SUPPORT — contact={{vars.contact_name}}, issue={{vars.issue}}. Support request — route to support team.",
       } as HandoffNodeConfig,
     },
 
@@ -528,17 +529,18 @@ const ZYNEX_LEAD_NURTURE: FlowTemplate = {
 };
 
 // ============================================================
-// 5. Zynex Onboarding — checklist-style onboarding for new customers
+// 5. Customer Onboarding — checklist-style onboarding for new customers
 // ============================================================
-// Trigger: keyword "onboarding" or "empezar" OR tag_added trial_activo
-const ZYNEX_ONBOARDING: FlowTemplate = {
-  slug: "zynex_onboarding",
-  name: "Zynex Onboarding",
+// Adapt: replace step instructions with your own product setup steps,
+// change step count, update completion message for your brand.
+const CUSTOMER_ONBOARDING: FlowTemplate = {
+  slug: "customer_onboarding",
+  name: "Customer Onboarding",
   description:
-    "Guide new customers through setup after trial activation. Checklist-style with 4 sections: WhatsApp connection, DigitBill setup, team invitation, and pipeline creation.",
+    "Guide new customers through setup with a checklist-style flow. Covers account connection, configuration, team invitation, and first workflow creation.",
   icon: "CheckSquare",
   trigger_type: "keyword",
-  trigger_config: { keywords: ["onboarding", "empezar", "setup"], match_type: "contains" },
+  trigger_config: { keywords: ["onboarding", "get started", "setup"], match_type: "contains" },
   entry_node_id: "start",
   nodes: [
     // ── Entry ────────────────────────────────────────────────
@@ -552,92 +554,92 @@ const ZYNEX_ONBOARDING: FlowTemplate = {
       node_key: "checklist",
       node_type: "send_list",
       config: {
-        header_text: "🎯 Tu checklist de onboarding",
-        text: "Tienes 4 pasos para dejar todo listo. ¿Por cuál empezamos?",
-        button_label: "Ver pasos",
+        header_text: "🎯 Your onboarding checklist",
+        text: "You have 4 steps to get set up. Which shall we start with?",
+        button_label: "View steps",
         sections: [
           {
-            title: "📱 WhatsApp",
+            title: "🔌 Integration",
             rows: [
-              { reply_id: "wa_connect", title: "Conectar número WhatsApp", description: "Vincula tu línea existente en 2 min", next_node_key: "step_wa" },
+              { reply_id: "connect", title: "Connect your channel", description: "Link WhatsApp, Instagram, or Messenger", next_node_key: "step_connect" },
             ],
           },
           {
-            title: "🧾 DigitBill",
+            title: "⚙️ Configuration",
             rows: [
-              { reply_id: "digitbill_setup", title: "Configurar e-CF (DigitBill)", description: "Automatiza facturas electrónicas DGII", next_node_key: "step_digitbill" },
+              { reply_id: "configure", title: "Configure your account", description: "Set up business hours, notifications, etc.", next_node_key: "step_configure" },
             ],
           },
           {
-            title: "👥 Equipo",
+            title: "👥 Team",
             rows: [
-              { reply_id: "team_invite", title: "Invitar a tu equipo", description: "Agrega hasta 5 agentes", next_node_key: "step_team" },
+              { reply_id: "invite", title: "Invite your team", description: "Add up to 5 team members", next_node_key: "step_invite" },
             ],
           },
           {
-            title: "📊 Pipeline",
+            title: "🚀 First Workflow",
             rows: [
-              { reply_id: "pipeline_setup", title: "Crear tu primer pipeline", description: "Organiza tus deals y clientes", next_node_key: "step_pipeline" },
+              { reply_id: "workflow", title: "Create your first workflow", description: "Automate your first process", next_node_key: "step_workflow" },
             ],
           },
         ],
       } as SendListNodeConfig,
     },
 
-    // ── Step: WhatsApp ───────────────────────────────────────
+    // ── Step: Connect ─────────────────────────────────────────
     {
-      node_key: "step_wa",
+      node_key: "step_connect",
       node_type: "send_message",
       config: {
-        text: "📱 Conectar WhatsApp:\n\n1. Ve a Ajustes → Canales\n2. Selecciona WhatsApp → Agregar número\n3. Escanea el QR con tu teléfono Business\n\nCuando termines, escribe 'listo' para marcar este paso ✅",
-        next_node_key: "wait_wa_done",
+        text: "🔌 Connecting your channel:\n\n1. Go to Settings → Channels\n2. Select your channel (WhatsApp, Instagram, etc.)\n3. Follow the auth steps\n\nWhen done, type 'done' to mark this step ✅",
+        next_node_key: "wait_connect",
       } as SendMessageNodeConfig,
     },
     {
-      node_key: "wait_wa_done",
+      node_key: "wait_connect",
       node_type: "collect_input",
       config: {
-        prompt_text: "Escribe 'listo' cuando hayas conectado tu WhatsApp:",
-        var_key: "wa_confirmed",
-        next_node_key: "step_digitbill",
+        prompt_text: "Type 'done' when you've connected your channel:",
+        var_key: "connect_done",
+        next_node_key: "step_configure",
       } as CollectInputNodeConfig,
     },
 
-    // ── Step: DigitBill ───────────────────────────────────────
+    // ── Step: Configure ────────────────────────────────────────
     {
-      node_key: "step_digitbill",
+      node_key: "step_configure",
       node_type: "send_message",
       config: {
-        text: "🧾 Configurar DigitBill:\n\n1. Ve a Ajustes → Integraciones → DigitBill\n2. Ingresa tu RNC\n3. Autoriza la conexión con DGII\n\n⚠️ Si aún no tienes cuenta DigitBill, crea una en digitbill.do — el primer mes es gratis.\n\nCuando esté listo, escribe 'digitbill_ok'",
-        next_node_key: "wait_digitbill_done",
+        text: "⚙️ Configuring your account:\n\n1. Go to Settings → Business Profile\n2. Set your business hours\n3. Configure notification preferences\n\nWhen finished, type 'done'",
+        next_node_key: "wait_configure",
       } as SendMessageNodeConfig,
     },
     {
-      node_key: "wait_digitbill_done",
+      node_key: "wait_configure",
       node_type: "collect_input",
       config: {
-        prompt_text: "Escribe 'digitbill_ok' cuando esté configurado:",
-        var_key: "digitbill_confirmed",
-        next_node_key: "step_team",
+        prompt_text: "Type 'done' when configuration is complete:",
+        var_key: "configure_done",
+        next_node_key: "step_invite",
       } as CollectInputNodeConfig,
     },
 
-    // ── Step: Team ───────────────────────────────────────────
+    // ── Step: Invite ──────────────────────────────────────────
     {
-      node_key: "step_team",
+      node_key: "step_invite",
       node_type: "send_message",
       config: {
-        text: "👥 Invitar al equipo:\n\n1. Ve a Ajustes → Equipo\n2. Agrega los emails de tus colaboradores\n3. Asigna roles: Agente, Admin, o Viewer\n\nDelegar tareas reduce tu carga drásticamente. ¿A quién vas a invitar primero?",
-        next_node_key: "step_pipeline",
+        text: "👥 Inviting your team:\n\n1. Go to Settings → Team\n2. Add your colleagues' emails\n3. Assign roles: Agent, Admin, or Viewer\n\nTip: having agents handle support frees you up to focus on growing your business.",
+        next_node_key: "step_workflow",
       } as SendMessageNodeConfig,
     },
 
-    // ── Step: Pipeline ───────────────────────────────────────
+    // ── Step: Workflow ────────────────────────────────────────
     {
-      node_key: "step_pipeline",
+      node_key: "step_workflow",
       node_type: "send_message",
       config: {
-        text: "📊 Crear tu primer pipeline:\n\n1. Ve a Deals → Pipelines\n2. Crea un pipeline nuevo\n3. Añade etapas: Lead, Qualification, Proposal, Closed\n\nUn pipeline organizado es la clave para no perder ventas. ¡Empieza hoy!",
+        text: "🚀 Creating your first workflow:\n\n1. Go to Flows → Create new\n2. Choose a template or start from scratch\n3. Set your trigger (e.g. new message, keyword)\n4. Add actions (reply, tag, assign, etc.)\n\nTip: start simple! One flow that works well is better than five half-finished ones.",
         next_node_key: "onboarding_complete",
       } as SendMessageNodeConfig,
     },
@@ -647,7 +649,7 @@ const ZYNEX_ONBOARDING: FlowTemplate = {
       node_key: "onboarding_complete",
       node_type: "send_message",
       config: {
-        text: "🎉 ¡Onboarding completado!\n\nTu cuenta Zynex CRM está lista:\n✅ WhatsApp conectado\n✅ DigitBill configurado\n✅ Equipo invitado\n✅ Pipeline creado\n\nTu próximo paso: crear tu primer flow de ventas. Escribe 'flows' para ver cómo empezar.\n\n¿Necesitas ayuda? Escribe 'soporte' y te conectamos.",
+        text: "🎉 Onboarding complete!\n\nYour account is ready:\n✅ Channel connected\n✅ Settings configured\n✅ Team invited\n✅ Workflow created\n\nNext step: explore your dashboard and try out some automations!\n\nNeed help? Type 'support' anytime.",
         next_node_key: "end",
       } as SendMessageNodeConfig,
     },
