@@ -384,8 +384,7 @@ const LEAD_QUALIFICATION: FlowTemplate = {
         buttons: [
           { reply_id: "demo", title: { en: "📊 Try DigitBill", es: "📊 Probar DigitBill" }, next_node_key: "demo_intro" },
           { reply_id: "pricing", title: { en: "💰 See pricing", es: "💰 Ver precios" }, next_node_key: "pricing_path" },
-          { reply_id: "features", title: { en: "📖 Learn more", es: "📖 Conocer más" }, next_node_key: "features_path" },
-          { reply_id: "support", title: { en: "💬 Talk to support", es: "💬 Hablar con soporte" }, next_node_key: "support_path" },
+          { reply_id: "support", title: { en: "💬 Talk to support", es: "💬 Soporte" }, next_node_key: "support_path" },
         ],
       } as SendButtonsNodeConfig,
     },
@@ -408,8 +407,8 @@ const LEAD_QUALIFICATION: FlowTemplate = {
         text: { en: "How would you like to try DigitBill?", es: "¿Cómo prefieres probar DigitBill?" },
         footer_text: { en: "Choose an option to continue", es: "Elige una opción para continuar" },
         buttons: [
-          { reply_id: "demo_link", title: { en: "📱 Try demo (no signup)", es: "📱 Probar demo (sin registro)" }, next_node_key: "demo_link_send" },
-          { reply_id: "create_account", title: { en: "✅ Create my account", es: "✅ Crear mi cuenta" }, next_node_key: "create_account_info" },
+          { reply_id: "demo_link", title: { en: "📱 Try demo", es: "📱 Probar demo" }, next_node_key: "demo_link_send" },
+          { reply_id: "create_account", title: { en: "✅ Create account", es: "✅ Crear cuenta" }, next_node_key: "create_account_info" },
         ],
       } as SendButtonsNodeConfig,
     },
@@ -454,8 +453,8 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       config: {
         text: { en: "Ready to get started?", es: "¿Listo para comenzar?" },
         buttons: [
-          { reply_id: "pricing_demo", title: { en: "📊 Try free demo", es: "📊 Probar demo gratis" }, next_node_key: "demo_intro" },
-          { reply_id: "pricing_contact", title: { en: "💬 Talk to sales", es: "💬 Hablar con ventas" }, next_node_key: "pricing_handoff" },
+          { reply_id: "pricing_demo", title: { en: "📊 Try demo", es: "📊 Probar demo" }, next_node_key: "demo_intro" },
+          { reply_id: "pricing_contact", title: { en: "💬 Contact sales", es: "💬 Contactar ventas" }, next_node_key: "pricing_handoff" },
         ],
       } as SendButtonsNodeConfig,
     },
@@ -484,8 +483,8 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       config: {
         text: { en: "Ready to try it?", es: "¿Listo para probarlo?" },
         buttons: [
-          { reply_id: "features_demo", title: { en: "📊 Try free demo", es: "📊 Probar demo gratis" }, next_node_key: "demo_intro" },
-          { reply_id: "features_contact", title: { en: "💬 Talk to sales", es: "💬 Hablar con ventas" }, next_node_key: "features_handoff" },
+          { reply_id: "features_demo", title: { en: "📊 Try demo", es: "📊 Probar demo" }, next_node_key: "demo_intro" },
+          { reply_id: "features_contact", title: { en: "💬 Contact sales", es: "💬 Contactar ventas" }, next_node_key: "features_handoff" },
         ],
       } as SendButtonsNodeConfig,
     },
