@@ -449,6 +449,15 @@ async function executeHandoff(
     updated_at: new Date().toISOString(),
   };
   if (cfg.assign_to) convUpdate.assigned_agent_id = cfg.assign_to;
+  let contactId = run.contact_id;
+  if (!contactId && run.conversation_id) {
+    const { data: conv } = await db
+      .from("conversations")
+      .select("contact_id")
+      .eq("id", run.conversation_id)
+      .maybeSingle();
+    contactId = conv?.contact_id ?? null;
+  }
   if (run.conversation_id) {
     await db
       .from("conversations")
@@ -459,6 +468,26 @@ async function executeHandoff(
     note: cfg.note ?? null,
     assigned_to: cfg.assign_to ?? null,
   });
+  if (contactId && cfg.note) {
+    console.log("[executeHandoff] INSERTING NOTE:", {
+      contactId,
+      user_id: run.user_id,
+      note: cfg.note,
+      nodeKey: node.node_key,
+    });
+    const { error: noteErr } = await db.from("contact_notes").insert({
+      contact_id: contactId,
+      user_id: run.user_id,
+      note_text: `[Flow handoff · ${node.node_key}] ${cfg.note}`,
+    });
+    if (noteErr) {
+      console.error("[executeHandoff] contact_notes insert failed:", noteErr);
+    } else {
+      console.log("[executeHandoff] NOTE INSERTED OK");
+    }
+  } else {
+    console.log("[executeHandoff] SKIPPING NOTE:", { contactId, note: cfg.note });
+  }
   await endRun(db, run.id, "handed_off", "handoff_node");
 }
 
