@@ -671,8 +671,8 @@ const TEMPLATES: Record<string, FlowTemplate> = {
   welcome_menu: WELCOME_MENU,
   faq_bot: FAQ_BOT,
   lead_capture: LEAD_CAPTURE,
-  zynex_lead_nurture: ZYNEX_LEAD_NURTURE,
-  zynex_onboarding: ZYNEX_ONBOARDING,
+  lead_qualification: LEAD_QUALIFICATION,
+  customer_onboarding: CUSTOMER_ONBOARDING,
 };
 
 export function getFlowTemplate(slug: string): FlowTemplate | null {
