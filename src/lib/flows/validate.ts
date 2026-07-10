@@ -701,6 +701,52 @@ function validateNode(
       break;
     }
 
+    case "http_fetch": {
+      const cfg = node.config as {
+        method?: string;
+        url?: string;
+        headers?: Record<string, string>;
+        body?: string;
+        next_node_key?: string;
+      };
+      if (!cfg.method || !["GET", "POST", "PUT", "PATCH", "DELETE"].includes(cfg.method)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "method",
+          message: "http_fetch needs a valid HTTP method (GET, POST, PUT, PATCH, DELETE).",
+        });
+      }
+      if (!cfg.url) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "url",
+          message: "http_fetch needs a URL.",
+        });
+      }
+      if (!cfg.next_node_key) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: "http_fetch must point to a next node.",
+        });
+      } else if (!knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: `http_fetch points to non-existent node "${cfg.next_node_key}".`,
+        });
+      }
+      break;
+    }
+
     case "handoff":
     case "end":
       // Terminal nodes have no outgoing edges; nothing to validate

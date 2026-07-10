@@ -23,6 +23,7 @@ import type {
   CollectInputNodeConfig,
   ConditionNodeConfig,
   HandoffNodeConfig,
+  HttpFetchNodeConfig,
   KeywordTriggerConfig,
   SendButtonsNodeConfig,
   SendListNodeConfig,
@@ -39,6 +40,7 @@ export type FlowTemplateNodeType =
   | "collect_input"
   | "condition"
   | "set_tag"
+  | "http_fetch"
   | "handoff"
   | "end";
 
@@ -53,6 +55,7 @@ export interface FlowTemplateNode {
     | CollectInputNodeConfig
     | ConditionNodeConfig
     | SetTagNodeConfig
+    | HttpFetchNodeConfig
     | HandoffNodeConfig
     | Record<string, unknown>;
 }
@@ -407,8 +410,18 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_type: "send_message",
       config: {
         text: "✅ Got it, {{vars.contact_name}}! We'll reach out within 2 hours. You'll receive a confirmation at {{vars.email}}.",
-        next_node_key: "demo_handoff",
+        next_node_key: "pending_digitbill",
       } as SendMessageNodeConfig,
+    },
+    // Tag: triggers automation to create DigitBill account via webhook
+    {
+      node_key: "pending_digitbill",
+      node_type: "set_tag",
+      config: {
+        mode: "add",
+        tag_id: "{PENDING_DIGITBILL_TAG}",
+        next_node_key: "demo_handoff",
+      } as SetTagNodeConfig,
     },
     {
       node_key: "demo_handoff",

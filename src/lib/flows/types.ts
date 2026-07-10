@@ -177,6 +177,24 @@ export interface SetTagNodeConfig {
 export type EndNodeConfig = Record<string, never>;
 
 /**
+ * HTTP Fetch node — makes a generic outbound HTTP request.
+ * Body supports {{vars.X}} interpolation using the run's vars.
+ * Errors are logged but do not crash the flow run.
+ */
+export interface HttpFetchNodeConfig {
+  /** HTTP method */
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  /** Target URL. Supports {{vars.X}} interpolation. */
+  url: string;
+  /** Optional headers as key-value pairs. Values support interpolation. */
+  headers?: Record<string, string>;
+  /** Request body. Supports {{vars.X}} interpolation. Use empty string for no body. */
+  body?: string;
+  /** Node to advance to after the request completes (regardless of success/failure). */
+  next_node_key: string;
+}
+
+/**
  * Total union — every concrete node_type the v1 engine understands.
  * Add new node types here and the engine's switch will flag missing
  * cases via TypeScript's exhaustiveness check.
@@ -193,6 +211,7 @@ export type FlowNodeConfig =
   | { node_type: "collect_input"; config: CollectInputNodeConfig }
   | { node_type: "condition"; config: ConditionNodeConfig }
   | { node_type: "set_tag"; config: SetTagNodeConfig }
+  | { node_type: "http_fetch"; config: HttpFetchNodeConfig }
   | { node_type: "handoff"; config: HandoffNodeConfig }
   | { node_type: "end"; config: EndNodeConfig };
 

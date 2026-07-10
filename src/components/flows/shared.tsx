@@ -19,6 +19,7 @@
 import {
   Flag,
   GitFork,
+  Globe,
   Inbox,
   ListChecks,
   ListPlus,
@@ -49,6 +50,7 @@ export type NodeType =
   | 'collect_input'
   | 'condition'
   | 'set_tag'
+  | 'http_fetch'
   | 'handoff'
   | 'end';
 
@@ -152,6 +154,13 @@ export const NODE_META: Record<
     blurb: 'Adds or removes a contact tag',
     category: 'logic',
   },
+  http_fetch: {
+    label: 'HTTP request',
+    icon: Globe,
+    color: 'text-violet-400',
+    blurb: 'Makes an outbound HTTP request',
+    category: 'logic',
+  },
   handoff: {
     label: 'Handoff to agent',
     icon: UserPlus,
@@ -205,6 +214,7 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   collect_input: { l: 0.65, c: 0.1, h: 185 }, // teal — capture
   condition: { l: 0.72, c: 0.15, h: 65 }, // amber — a fork in the road
   set_tag: { l: 0.65, c: 0.15, h: 350 }, // pink
+  http_fetch: { l: 0.65, c: 0.18, h: 270 }, // violet — outbound call
   handoff: { l: 0.65, c: 0.17, h: 16 }, // rose — hands off
   end: { l: 0.55, c: 0.01, h: 260 }, // neutral grey — terminal
 };
@@ -414,6 +424,11 @@ export function summarizeNode(node: BuilderNode): string | null {
       return tagId
         ? `${mode} tag ${tagId.slice(0, 8)}…`
         : `${mode} tag (none picked)`;
+    }
+    case 'http_fetch': {
+      const method = typeof cfg.method === 'string' ? cfg.method : '';
+      const url = typeof cfg.url === 'string' ? cfg.url : '';
+      return method && url ? `${method} ${truncate(url, 50)}` : method ? `${method} (no URL)` : 'HTTP request (not configured)';
     }
     case 'handoff': {
       const note = typeof cfg.note === 'string' ? cfg.note : '';
