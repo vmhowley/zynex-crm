@@ -413,26 +413,24 @@ const LEAD_QUALIFICATION: FlowTemplate = {
         next_node_key: "create_digitbill_lead",
       } as SendMessageNodeConfig,
     },
-    // HTTP Fetch: creates lead in external CRM (e.g. DigitBill)
-    // ADAPT: Replace the URL with your external CRM's lead capture endpoint.
+    // HTTP Fetch: creates account in DigitBill and sends credentials via email
+    // ADAPT: Replace the URL with your DigitBill API endpoint.
     // Body uses {{vars.X}} interpolation to send captured data.
     {
       node_key: "create_digitbill_lead",
       node_type: "http_fetch",
       config: {
         method: "POST",
-        url: "https://api.digitbill.do/api/public/crm/leads",
+        url: "https://api.digitbill.do/api/auth/public/register",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": "Bearer {YOUR_API_KEY}",
         },
         body: JSON.stringify({
-          name: "{{vars.contact_name}}",
+          full_name: "{{vars.contact_name}}",
           email: "{{vars.email}}",
           phone: "{{vars.phone}}",
-          company: "{{vars.company}}",
-          rnc: "{{vars.rnc}}",
-          source: "zynex_crm",
+          company_name: "{{vars.company}}",
+          plan: "pyme",
         }),
         next_node_key: "demo_handoff",
       } as unknown as HttpFetchNodeConfig,
