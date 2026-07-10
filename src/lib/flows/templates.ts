@@ -424,27 +424,7 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_type: "send_message",
       config: {
         text: { en: "✅ Great choice! Creating your account is quick and easy:\n\n1️⃣ Go to: digitbillrd.com/register\n2️⃣ Fill in your basic info (RNC optional)\n3️⃣ Start using DigitBill right away\n\n💡 Tip: Have your RNC ready if you want to set up invoicing right away.\n\nWhen you're done, just reply \"iniciar\" here and we'll guide you through the next steps! 🚀\n\nNeed help? An agent can guide you through the process. Just ask!", es: "✅ ¡Gran elección! Crear tu cuenta es rápido y fácil:\n\n1️⃣ Ve a: digitbillrd.com/register\n2️⃣ Llena tu información básica (RNC opcional)\n3️⃣ ¡Empieza a usar DigitBill de inmediato!\n\n💡 Tip: Ten tu RNC a la mano si quieres configurar la facturación desde el inicio.\n\nCuando termines, responde \"iniciar\" aquí y te guiaremos paso a paso 🚀\n\n¿Necesitas ayuda? Un agente puede guiarte paso a paso. ¡Solo pregunta!" },
-        next_node_key: "create_account_confirm",
-      } as SendMessageNodeConfig,
-    },
-    {
-      node_key: "create_account_confirm",
-      node_type: "send_buttons",
-      config: {
-        text: { en: "Did you manage to create your account?", es: "¿Pudiste crear tu cuenta?" },
-        footer_text: { en: "We're here to help", es: "Estamos para ayudarte" },
-        buttons: [
-          { reply_id: "account_done", title: { en: "✅ Yes, I'm in!", es: "✅ ¡Sí, estoy dentro!" }, next_node_key: "account_done" },
-          { reply_id: "need_help", title: { en: "💬 I need help", es: "💬 Necesito ayuda" }, next_node_key: "demo_handoff" },
-        ],
-      } as SendButtonsNodeConfig,
-    },
-    {
-      node_key: "account_done",
-      node_type: "send_message",
-      config: {
-        text: { en: "🎉 Welcome aboard, {{contact.name}}!\n\nWe're so glad you're here. If you have any questions as you explore DigitBill, don't hesitate to reach out. Happy to help! 🚀", es: "🎉 ¡Bienvenido/a, {{contact.name}}!\n\nNos alegra que estés aquí. Si tienes alguna pregunta mientras exploras DigitBill, no dudes en escribirnos. ¡Con gusto te ayudamos! 🚀" },
-        next_node_key: "end",
+        next_node_key: "demo_handoff",
       } as SendMessageNodeConfig,
     },
     {
