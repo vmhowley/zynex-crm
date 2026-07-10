@@ -60,6 +60,8 @@ export interface FlowTemplateNode {
     | Record<string, unknown>;
 }
 
+export type Locale = 'en' | 'es';
+
 export interface FlowTemplate {
   slug: string;
   name: string;
@@ -70,6 +72,56 @@ export interface FlowTemplate {
   trigger_config: KeywordTriggerConfig | Record<string, unknown>;
   entry_node_id: string;
   nodes: FlowTemplateNode[];
+}
+
+/** Localized text: either a plain string (no localization) or { en: "...", es: "..." } */
+export type LocalizedText = string | { en: string; es: string };
+
+/** Recursively replace localized text fields in a config object */
+function localizeConfig(config: Record<string, unknown>, lang: Locale): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(config)) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      const obj = value as Record<string, unknown>;
+      if ('en' in obj && 'es' in obj && typeof obj.en === 'string' && typeof obj.es === 'string') {
+        result[key] = lang === 'es' ? obj.es : obj.en;
+      } else if (key === 'buttons' && Array.isArray(obj)) {
+        result[key] = (obj as Record<string, unknown>[]).map(btn => {
+          if (btn && typeof btn === 'object') {
+            const buttonObj = btn as Record<string, unknown>;
+            const localized: Record<string, unknown> = {};
+            for (const [btnKey, btnVal] of Object.entries(buttonObj)) {
+              if (btnVal && typeof btnVal === 'object' && 'en' in (btnVal as object) && 'es' in (btnVal as object)) {
+                const loc = btnVal as { en: string; es: string };
+                localized[btnKey] = lang === 'es' ? loc.es : loc.en;
+              } else {
+                localized[btnKey] = btnVal;
+              }
+            }
+            return localized;
+          }
+          return btn;
+        });
+      } else {
+        result[key] = localizeConfig(obj, lang);
+      }
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+/** Compile a template to a specific locale, replacing localized text */
+export function compileTemplate(template: FlowTemplate, lang: Locale): FlowTemplate {
+  return {
+    ...template,
+    name: lang === 'es' && !template.name.includes('(ES)') ? `${template.name} (ES)` : template.name,
+    nodes: template.nodes.map(node => ({
+      ...node,
+      config: localizeConfig(node.config as Record<string, unknown>, lang),
+    })),
+  };
 }
 
 // ============================================================
@@ -94,17 +146,17 @@ const WELCOME_MENU: FlowTemplate = {
       node_key: "welcome",
       node_type: "send_buttons",
       config: {
-        text: "Hi! 👋 Welcome to support. Are you an existing customer or new here?",
-        footer_text: "Tap a button below to continue.",
+        text: { en: "Hi! 👋 Welcome to support. Are you an existing customer or new here?", es: "¡Hola! 👋 Bienvenido al soporte. ¿Eres cliente existente o nuevo aquí?" },
+        footer_text: { en: "Tap a button below to continue.", es: "Toca un botón para continuar." },
         buttons: [
           {
             reply_id: "existing",
-            title: "Existing customer",
+            title: { en: "Existing customer", es: "Cliente existente" },
             next_node_key: "existing_handoff",
           },
           {
             reply_id: "new",
-            title: "New customer",
+            title: { en: "New customer", es: "Cliente nuevo" },
             next_node_key: "new_handoff",
           },
         ],
@@ -114,14 +166,14 @@ const WELCOME_MENU: FlowTemplate = {
       node_key: "existing_handoff",
       node_type: "handoff",
       config: {
-        note: "Existing customer needs assistance — please check account history before replying.",
+        note: { en: "Existing customer needs assistance — please check account history before replying.", es: "Cliente existente necesita ayuda — por favor verifica el historial de cuenta antes de responder." },
       } as HandoffNodeConfig,
     },
     {
       node_key: "new_handoff",
       node_type: "handoff",
       config: {
-        note: "New customer — share pricing + onboarding link.",
+        note: { en: "New customer — share pricing + onboarding link.", es: "Cliente nuevo — comparte precios + enlace de onboarding." },
       } as HandoffNodeConfig,
     },
   ],
@@ -318,7 +370,7 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_key: "welcome",
       node_type: "send_message",
       config: {
-        text: "Hi there! 👋 How can we help you today?",
+        text: { en: "Hi there! 👋 How can we help you today?", es: "¡Hola! 👋 ¿En qué podemos ayudarte hoy?" },
         next_node_key: "main_menu",
       } as SendMessageNodeConfig,
     },
@@ -327,12 +379,12 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_key: "main_menu",
       node_type: "send_buttons",
       config: {
-        text: "What are you looking for?",
-        footer_text: "We'll get back to you right away",
+        text: { en: "What are you looking for?", es: "¿Qué estás buscando?" },
+        footer_text: { en: "We'll get back to you right away", es: "Te responderemos pronto" },
         buttons: [
-          { reply_id: "demo", title: "📊 Request a demo", next_node_key: "demo_intro" },
-          { reply_id: "trial", title: "🚀 Start free trial", next_node_key: "trial_intro" },
-          { reply_id: "support", title: "💬 Talk to support", next_node_key: "support_path" },
+          { reply_id: "demo", title: { en: "📊 Request a demo", es: "📊 Solicitar demo" }, next_node_key: "demo_intro" },
+          { reply_id: "trial", title: { en: "🚀 Start free trial", es: "🚀 Iniciar prueba gratis" }, next_node_key: "trial_intro" },
+          { reply_id: "support", title: { en: "💬 Talk to support", es: "💬 Hablar con soporte" }, next_node_key: "support_path" },
         ],
       } as SendButtonsNodeConfig,
     },
@@ -344,7 +396,7 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_key: "demo_intro",
       node_type: "send_message",
       config: {
-        text: "Great choice! 📊 I'll set up a personalized demo for you. Let me ask a few quick questions.",
+        text: { en: "Great choice! 📊 I'll set up a personalized demo for you. Let me ask a few quick questions.", es: "¡Gran elección! 📊 Te prepararé una demo personalizada. Déjame hacerte unas preguntas rápidas." },
         next_node_key: "demo_company",
       } as SendMessageNodeConfig,
     },
@@ -352,7 +404,7 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_key: "demo_company",
       node_type: "collect_input",
       config: {
-        prompt_text: "What's your company name?",
+        prompt_text: { en: "What's your company name?", es: "¿Cuál es el nombre de tu empresa?" },
         var_key: "company",
         next_node_key: "demo_contact",
       } as CollectInputNodeConfig,
@@ -361,7 +413,7 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_key: "demo_contact",
       node_type: "collect_input",
       config: {
-        prompt_text: "And what's your name?",
+        prompt_text: { en: "And what's your name?", es: "¿Y tu nombre?" },
         var_key: "contact_name",
         next_node_key: "demo_email",
       } as CollectInputNodeConfig,
@@ -370,7 +422,7 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_key: "demo_email",
       node_type: "collect_input",
       config: {
-        prompt_text: "Last step — what's your email address?",
+        prompt_text: { en: "Last step — what's your email address?", es: "Último paso — ¿cuál es tu correo electrónico?" },
         var_key: "email",
         next_node_key: "demo_score_check",
       } as CollectInputNodeConfig,
@@ -409,7 +461,7 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_key: "demo_confirm",
       node_type: "send_message",
       config: {
-        text: "✅ Got it, {{vars.contact_name}}! We'll reach out within 2 hours. You'll receive a confirmation at {{vars.email}}.",
+        text: { en: "✅ Got it, {{vars.contact_name}}! We'll reach out within 2 hours. You'll receive a confirmation at {{vars.email}}.", es: "✅ Perfecto, {{vars.contact_name}}! Te contactaremos en 2 horas. Recibirás una confirmación en {{vars.email}}." },
         next_node_key: "create_digitbill_lead",
       } as SendMessageNodeConfig,
     },
@@ -439,7 +491,7 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_key: "demo_handoff",
       node_type: "handoff",
       config: {
-        note: "📊 DEMO REQUEST — company={{vars.company}}, contact={{vars.contact_name}}, email={{vars.email}}. High-interest lead. Schedule demo call.",
+        note: { en: "📊 DEMO REQUEST — company={{vars.company}}, contact={{vars.contact_name}}, email={{vars.email}}. High-interest lead. Schedule demo call.", es: "📊 SOLICITUD DE DEMO — empresa={{vars.company}}, contacto={{vars.contact_name}}, email={{vars.email}}. Lead de alto interés. Agendar llamada de demo." },
       } as HandoffNodeConfig,
     },
 
@@ -450,7 +502,7 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_key: "trial_intro",
       node_type: "send_message",
       config: {
-        text: "Awesome! 🚀 Let's get you set up with a free trial. Quick question first.",
+        text: { en: "Awesome! 🚀 Let's get you set up with a free trial. Quick question first.", es: "¡Genial! 🚀 Vamos a configurarte una prueba gratuita. Primero una pregunta rápida." },
         next_node_key: "trial_company",
       } as SendMessageNodeConfig,
     },
@@ -458,7 +510,7 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_key: "trial_company",
       node_type: "collect_input",
       config: {
-        prompt_text: "What's your company name?",
+        prompt_text: { en: "What's your company name?", es: "¿Cuál es el nombre de tu empresa?" },
         var_key: "company",
         next_node_key: "trial_agree",
       } as CollectInputNodeConfig,
@@ -467,11 +519,11 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_key: "trial_agree",
       node_type: "send_buttons",
       config: {
-        text: "To start your trial, we just need your consent. Do you agree?",
-        footer_text: "You can cancel anytime.",
+        text: { en: "To start your trial, we just need your consent. Do you agree?", es: "Para iniciar tu prueba, solo necesitamos tu consentimiento. ¿Aceptas?" },
+        footer_text: { en: "You can cancel anytime.", es: "Puedes cancelar en cualquier momento." },
         buttons: [
-          { reply_id: "accept", title: "✅ Yes, continue", next_node_key: "trial_confirm" },
-          { reply_id: "later", title: "⏳ Maybe later", next_node_key: "trial_decline" },
+          { reply_id: "accept", title: { en: "✅ Yes, continue", es: "✅ Sí, continuar" }, next_node_key: "trial_confirm" },
+          { reply_id: "later", title: { en: "⏳ Maybe later", es: "⏳ Quizás después" }, next_node_key: "trial_decline" },
         ],
       } as SendButtonsNodeConfig,
     },
@@ -479,7 +531,7 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_key: "trial_confirm",
       node_type: "send_message",
       config: {
-        text: "🎉 Trial activated! You'll receive your login details shortly. Welcome aboard, {{vars.company}}!",
+        text: { en: "🎉 Trial activated! You'll receive your login details shortly. Welcome aboard, {{vars.company}}!", es: "🎉 ¡Prueba activada! Recibirás tus datos de acceso pronto. ¡Bienvenido, {{vars.company}}!" },
         next_node_key: "trial_handoff",
       } as SendMessageNodeConfig,
     },
@@ -487,14 +539,14 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_key: "trial_handoff",
       node_type: "handoff",
       config: {
-        note: "🚀 TRIAL ACTIVATED — company={{vars.company}}. Set up account, add {TRIAL_TAG}, create deal in sales pipeline.",
+        note: { en: "🚀 TRIAL ACTIVATED — company={{vars.company}}. Set up account, add {TRIAL_TAG}, create deal in sales pipeline.", es: "🚀 PRUEBA ACTIVADA — empresa={{vars.company}}. Configurar cuenta, agregar {TRIAL_TAG}, crear oportunidad en pipeline de ventas." },
       } as HandoffNodeConfig,
     },
     {
       node_key: "trial_decline",
       node_type: "send_message",
       config: {
-        text: "No problem at all. Just message us when you're ready to start your trial. We'll be here! 😊",
+        text: { en: "No problem at all. Just message us when you're ready to start your trial. We'll be here! 😊", es: "No hay problema. escríbenos cuando estés listo para comenzar tu prueba. ¡Estaremos aquí! 😊" },
         next_node_key: "end",
       } as SendMessageNodeConfig,
     },
@@ -506,7 +558,7 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_key: "support_path",
       node_type: "send_message",
       config: {
-        text: "Of course! 💬 Our support team is here to help. We're available Mon–Fri, 9am–6pm. Outside hours, we'll respond next business day.",
+        text: { en: "Of course! 💬 Our support team is here to help. We're available Mon–Fri, 9am–6pm. Outside hours, we'll respond next business day.", es: "¡Claro! 💬 Nuestro equipo de soporte está aquí para ayudarte. Estamos disponibles Lun–Vie, 9am–6pm. Fuera de horario, responderemos el próximo día hábil." },
         next_node_key: "support_issue",
       } as SendMessageNodeConfig,
     },
@@ -514,7 +566,7 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_key: "support_issue",
       node_type: "collect_input",
       config: {
-        prompt_text: "Please briefly describe your issue or question:",
+        prompt_text: { en: "Please briefly describe your issue or question:", es: "Por favor describe brevemente tu problema o pregunta:" },
         var_key: "issue",
         next_node_key: "support_confirm",
       } as CollectInputNodeConfig,
@@ -523,7 +575,7 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_key: "support_confirm",
       node_type: "send_message",
       config: {
-        text: "Got it 📝 An agent will respond within 2 hours. We'll notify you here on WhatsApp.",
+        text: { en: "Got it 📝 An agent will respond within 2 hours. We'll notify you here on WhatsApp.", es: "Entendido 📝 Un agente responderá en 2 horas. Te notificaremos por WhatsApp." },
         next_node_key: "support_tag",
       } as SendMessageNodeConfig,
     },
@@ -540,7 +592,7 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_key: "support_handoff",
       node_type: "handoff",
       config: {
-        note: "💬 SUPPORT — contact={{vars.contact_name}}, issue={{vars.issue}}. Support request — route to support team.",
+        note: { en: "💬 SUPPORT — contact={{vars.contact_name}}, issue={{vars.issue}}. Support request — route to support team.", es: "💬 SOPORTE — contacto={{vars.contact_name}}, issue={{vars.issue}}. Solicitud de soporte — derivar al equipo de soporte." },
       } as HandoffNodeConfig,
     },
 
@@ -710,10 +762,24 @@ const TEMPLATES: Record<string, FlowTemplate> = {
   customer_onboarding: CUSTOMER_ONBOARDING,
 };
 
-export function getFlowTemplate(slug: string): FlowTemplate | null {
-  return TEMPLATES[slug] ?? null;
+export function getFlowTemplate(slug: string, lang?: Locale): FlowTemplate | null {
+  const template = TEMPLATES[slug] ?? null;
+  if (!template) return null;
+  if (!lang) return template;
+  return compileTemplate(template, lang);
 }
 
 export function listFlowTemplates(): FlowTemplate[] {
   return Object.values(TEMPLATES);
+}
+
+/** Returns all available locales for a template (checks if template has localized content) */
+export function getTemplateLocales(slug: string): Locale[] {
+  const template = TEMPLATES[slug];
+  if (!template) return [];
+  const hasLocalized = template.nodes.some(node => {
+    const config = node.config as Record<string, unknown>;
+    return JSON.stringify(config).includes('"en"') && JSON.stringify(config).includes('"es"');
+  });
+  return hasLocalized ? ['en', 'es'] : ['en'];
 }

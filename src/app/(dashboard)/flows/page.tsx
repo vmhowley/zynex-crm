@@ -93,6 +93,8 @@ export default function FlowsPage() {
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
+  const [langPickerOpen, setLangPickerOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateSummary | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -155,21 +157,27 @@ export default function FlowsPage() {
     }
   }
 
-  async function handleUseTemplate(slug: string) {
+  async function handleUseTemplate(slug: string, language: 'en' | 'es' | 'both' = 'en') {
     setCreating(true);
+    setLangPickerOpen(false);
     try {
       const res = await fetch("/api/flows", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ template_slug: slug }),
+        body: JSON.stringify({ template_slug: slug, language }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
         throw new Error(json.error ?? `Clone failed: ${res.status}`);
       }
-      const json = (await res.json()) as { flow: FlowRow };
+      const json = (await res.json()) as { flows: Array<{ id: string; name: string }> };
       setCreateOpen(false);
-      router.push(`/flows/${json.flow.id}`);
+      if (json.flows.length === 1) {
+        router.push(`/flows/${json.flows[0].id}`);
+      } else {
+        toast.success(`Created ${json.flows.length} flows: ${json.flows.map(f => f.name).join(', ')}`);
+        router.refresh();
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Clone failed";
       toast.error(msg);
@@ -270,7 +278,10 @@ export default function FlowsPage() {
                     <button
                       key={t.slug}
                       type="button"
-                      onClick={() => handleUseTemplate(t.slug)}
+                      onClick={() => {
+                        setSelectedTemplate(t);
+                        setLangPickerOpen(true);
+                      }}
                       disabled={creating}
                       className="flex flex-col gap-2.5 rounded-lg border border-border bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-muted disabled:opacity-50"
                     >
@@ -317,6 +328,61 @@ export default function FlowsPage() {
             <Button onClick={handleCreate} disabled={!newName.trim() || creating}>
               {creating && <Loader2 className="h-4 w-4 animate-spin" />}
               Create blank flow
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Language picker dialog */}
+      <Dialog open={langPickerOpen} onOpenChange={setLangPickerOpen}>
+        <DialogContent className="sm:max-w-md bg-popover text-popover-foreground">
+          <DialogHeader>
+            <DialogTitle>Select language</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Choose the language for "{selectedTemplate?.name}". Select "Both" to create English and Spanish versions.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-4">
+            <button
+              type="button"
+              onClick={() => handleUseTemplate(selectedTemplate!.slug, 'en')}
+              disabled={creating}
+              className="flex items-center gap-3 rounded-lg border border-border bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-muted disabled:opacity-50"
+            >
+              <span className="text-2xl">🇺🇸</span>
+              <div>
+                <span className="text-sm font-semibold">English</span>
+                <p className="text-xs text-muted-foreground">Create English version only</p>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleUseTemplate(selectedTemplate!.slug, 'es')}
+              disabled={creating}
+              className="flex items-center gap-3 rounded-lg border border-border bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-muted disabled:opacity-50"
+            >
+              <span className="text-2xl">🇪🇸</span>
+              <div>
+                <span className="text-sm font-semibold">Español</span>
+                <p className="text-xs text-muted-foreground">Crear versión en español</p>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleUseTemplate(selectedTemplate!.slug, 'both')}
+              disabled={creating}
+              className="flex items-center gap-3 rounded-lg border border-border bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-muted disabled:opacity-50"
+            >
+              <span className="text-2xl">🌐</span>
+              <div>
+                <span className="text-sm font-semibold">Both languages</span>
+                <p className="text-xs text-muted-foreground">Create English and Spanish versions</p>
+              </div>
+            </button>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setLangPickerOpen(false)}>
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>
