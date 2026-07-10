@@ -382,8 +382,7 @@ const LEAD_QUALIFICATION: FlowTemplate = {
         text: { en: "What are you looking for?", es: "¿Qué estás buscando?" },
         footer_text: { en: "We'll get back to you right away", es: "Te responderemos pronto" },
         buttons: [
-          { reply_id: "demo", title: { en: "📊 Request a demo", es: "📊 Solicitar demo" }, next_node_key: "demo_intro" },
-          { reply_id: "trial", title: { en: "🚀 Start free trial", es: "🚀 Iniciar prueba gratis" }, next_node_key: "trial_intro" },
+          { reply_id: "demo", title: { en: "📊 Try DigitBill", es: "📊 Probar DigitBill" }, next_node_key: "demo_intro" },
           { reply_id: "support", title: { en: "💬 Talk to support", es: "💬 Hablar con soporte" }, next_node_key: "support_path" },
         ],
       } as SendButtonsNodeConfig,
@@ -457,54 +456,7 @@ const LEAD_QUALIFICATION: FlowTemplate = {
     },
 
     // ════════════════════════════════════════════════════════
-    // PATH B — TRIAL (same as DEMO, self-service)
-    // ════════════════════════════════════════════════════════
-    {
-      node_key: "trial_intro",
-      node_type: "send_message",
-      config: {
-        text: { en: "Awesome! 🚀 We have two options for you to get started:", es: "¡Genial! 🚀 Tenemos dos opciones para que empieces:" },
-        next_node_key: "trial_options",
-      } as SendMessageNodeConfig,
-    },
-    {
-      node_key: "trial_options",
-      node_type: "send_buttons",
-      config: {
-        text: { en: "How would you like to try DigitBill?", es: "¿Cómo prefieres probar DigitBill?" },
-        footer_text: { en: "Choose an option to continue", es: "Elige una opción para continuar" },
-        buttons: [
-          { reply_id: "trial_link", title: { en: "📱 Try first (no signup)", es: "📱 Probar primero (sin registro)" }, next_node_key: "trial_link_send" },
-          { reply_id: "trial_create", title: { en: "✅ Create my account", es: "✅ Crear mi cuenta" }, next_node_key: "trial_account_info" },
-        ],
-      } as SendButtonsNodeConfig,
-    },
-    {
-      node_key: "trial_link_send",
-      node_type: "send_message",
-      config: {
-        text: { en: "🎉 Perfect! Here's your trial link:\n\n👉 digitbillrd.com/demo\n\nSelect the profile that best fits your business and explore freely for 14 days. No account or credit card needed.\n\nIf you decide to continue, you can create your account anytime! 😊", es: "🎉 ¡Perfecto! Este es tu link de prueba:\n\n👉 digitbillrd.com/demo\n\nSelecciona el perfil que mejor se adapte a tu negocio y explora libremente por 14 días. No necesitas cuenta ni tarjeta.\n\n¡Si decides continuar, puedes crear tu cuenta cuando quieras! 😊" },
-        next_node_key: "trial_handoff",
-      } as SendMessageNodeConfig,
-    },
-    {
-      node_key: "trial_account_info",
-      node_type: "send_message",
-      config: {
-        text: { en: "✅ Great! Creating your account gives you full access for 14 days free:\n\n1️⃣ Go to: digitbillrd.com/register\n2️⃣ Fill in your basic info (RNC optional)\n3️⃣ Enjoy full access to DigitBill\n\n💡 You'll keep all your data if you decide to continue after the trial.\n\nNeed help? An agent can guide you through the process!", es: "✅ ¡Genial! Crear tu cuenta te da acceso completo por 14 días gratis:\n\n1️⃣ Ve a: digitbillrd.com/register\n2️⃣ Llena tu información básica (RNC opcional)\n3️⃣ Disfruta acceso completo a DigitBill\n\n💡 Conservarás todos tus datos si decides continuar después del trial.\n\n¿Necesitas ayuda? ¡Un agente puede guiarte paso a paso!" },
-        next_node_key: "trial_handoff",
-      } as SendMessageNodeConfig,
-    },
-    {
-      node_key: "trial_handoff",
-      node_type: "handoff",
-      config: {
-        note: { en: "🚀 TRIAL INTEREST — contact={{contact.name}}, phone={{contact.phone}}. Needs help with trial or account creation. Follow up promptly.", es: "🚀 INTERÉS EN PRUEBA — contacto={{contact.name}}, teléfono={{contact.phone}}. Necesita ayuda con prueba o creación de cuenta. Seguimiento prompto." },
-      } as HandoffNodeConfig,
-    },
-
-    // ════════════════════════════════════════════════════════
-    // PATH C — SUPPORT
+    // PATH B — SUPPORT
     // ════════════════════════════════════════════════════════
     {
       node_key: "support_path",
