@@ -10,6 +10,7 @@ import {
   Unplug,
   ExternalLink,
   MessageSquare,
+  Keyboard,
 } from "lucide-react";
 import {
   Accordion,
@@ -19,6 +20,8 @@ import {
 } from "@/components/ui/accordion";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SettingsPanelHead } from "./settings-panel-head";
@@ -266,6 +269,16 @@ export function ChannelsPanel() {
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<ChannelType | null>(null);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  
+  // Manual connection form
+  const [showManualForm, setShowManualForm] = useState<ChannelType | null>(null);
+  const [manualForm, setManualForm] = useState({
+    pageId: "",
+    accessToken: "",
+    verifyToken: "",
+    igBusinessAccountId: "",
+  });
+  const [savingManual, setSavingManual] = useState(false);
 
   const canEdit = canEditSettings && !profileLoading;
 
@@ -303,6 +316,42 @@ export function ChannelsPanel() {
       toast.error("Error al desconectar canal");
     } finally {
       setDisconnecting(null);
+    }
+  }
+
+  async function handleManualSave(channel: ChannelType) {
+    if (!manualForm.pageId || !manualForm.accessToken) {
+      toast.error("Page ID y Access Token son requeridos");
+      return;
+    }
+    
+    setSavingManual(true);
+    try {
+      const res = await fetch("/api/channels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channel,
+          page_id: manualForm.pageId,
+          access_token: manualForm.accessToken,
+          verify_token: manualForm.verifyToken || undefined,
+          ig_business_account_id: channel === "instagram" ? manualForm.igBusinessAccountId || undefined : undefined,
+        }),
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to save");
+      }
+      
+      toast.success(`${channel === "instagram" ? "Instagram" : "Messenger"} conectado correctamente`);
+      setShowManualForm(null);
+      setManualForm({ pageId: "", accessToken: "", verifyToken: "", igBusinessAccountId: "" });
+      await fetchChannels();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al conectar");
+    } finally {
+      setSavingManual(false);
     }
   }
 
@@ -415,24 +464,93 @@ export function ChannelsPanel() {
                             Docs
                           </Button>
                         </>
-                      ) : (
-                        <Button
-                          size="sm"
-                          className="gap-1.5"
-                          onClick={() => handleConnect(channel)}
-                          disabled={!canEdit || isConnecting}
-                        >
-                          {isConnecting ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Cable className="h-3.5 w-3.5" />
+                      ) : showManualForm === channel ? (
+                        <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+                          <div className="grid gap-2">
+                            <Label className="text-xs">Page ID</Label>
+                            <Input
+                              placeholder="Tu Facebook Page ID"
+                              value={manualForm.pageId}
+                              onChange={(e) => setManualForm({ ...manualForm, pageId: e.target.value })}
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label className="text-xs">Access Token</Label>
+                            <Input
+                              type="password"
+                              placeholder="Tu Page Access Token"
+                              value={manualForm.accessToken}
+                              onChange={(e) => setManualForm({ ...manualForm, accessToken: e.target.value })}
+                            />
+                          </div>
+                          {channel === "instagram" && (
+                            <div className="grid gap-2">
+                              <Label className="text-xs">Instagram Business Account ID</Label>
+                              <Input
+                                placeholder="IG Business Account ID (opcional)"
+                                value={manualForm.igBusinessAccountId}
+                                onChange={(e) => setManualForm({ ...manualForm, igBusinessAccountId: e.target.value })}
+                              />
+                            </div>
                           )}
-                          Conectar {meta.label}
-                        </Button>
+                          <div className="grid gap-2">
+                            <Label className="text-xs">Webhook Verify Token (opcional)</Label>
+                            <Input
+                              placeholder="Token para verificar webhook"
+                              value={manualForm.verifyToken}
+                              onChange={(e) => setManualForm({ ...manualForm, verifyToken: e.target.value })}
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleManualSave(channel)}
+                              disabled={savingManual || !manualForm.pageId || !manualForm.accessToken}
+                            >
+                              {savingManual ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Guardar"}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setShowManualForm(null);
+                                setManualForm({ pageId: "", accessToken: "", verifyToken: "", igBusinessAccountId: "" });
+                              }}
+                            >
+                              Cancelar
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2 flex-wrap">
+                          <Button
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() => handleConnect(channel)}
+                            disabled={!canEdit || isConnecting}
+                          >
+                            {isConnecting ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Cable className="h-3.5 w-3.5" />
+                            )}
+                            Conectar {meta.label}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() => setShowManualForm(channel)}
+                            disabled={!canEdit}
+                          >
+                            <Keyboard className="h-3.5 w-3.5" />
+                            Manual
+                          </Button>
+                        </div>
                       )}
                     </div>
 
-                    <SetupInstructions channel={channel} />
+                    {showManualForm !== channel && <SetupInstructions channel={channel} />}
                   </>
                 )}
               </CardContent>
