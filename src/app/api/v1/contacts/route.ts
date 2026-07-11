@@ -6,6 +6,8 @@
 // supports `?search=` (name/phone) and `?tag=<tagId>` filters. Create
 // is find-or-create by phone: an existing match returns 200 with
 // `created: false`; a new row returns 201 with `created: true`.
+//
+// POST also enforces the account's contact limit from the subscription plan.
 // ============================================================
 
 import { requireApiKey } from '@/lib/auth/api-context';
@@ -24,6 +26,7 @@ import {
   resolveAuditUserId,
   ContactError,
 } from '@/lib/api/v1/contacts';
+import { checkLimit } from '@/lib/subscription/enforce';
 
 // PostgREST filter values are comma/paren-delimited; strip anything
 // that could break the `.or()` grammar before interpolating a search
@@ -110,6 +113,12 @@ export async function POST(request: Request) {
     const external_id = typeof body.external_id === 'string' ? body.external_id.trim() : '';
     if (!phone && !recipient_id && !external_id) {
       return fail('bad_request', "'phone', 'external_id', or 'recipient_id' is required", 400);
+    }
+
+    // Check contact limit before creating
+    const limitCheck = await checkLimit(ctx.accountId, 'contacts', 1);
+    if (!limitCheck.allowed) {
+      return fail('forbidden', limitCheck.error || 'Contact limit exceeded', 403);
     }
 
     const auditUserId = await resolveAuditUserId(ctx.supabase, ctx.accountId);

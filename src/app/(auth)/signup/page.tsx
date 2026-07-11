@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { MessageSquare, CheckCircle, UsersRound } from "lucide-react";
 import { useTranslations } from "@/hooks/use-translations";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 export default function SignupPage() {
   return (
@@ -82,154 +83,234 @@ function SignupPageInner() {
 
   if (success) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <Card className="w-full max-w-md border-border bg-card">
-          <CardHeader className="items-center text-center">
-            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-              <CheckCircle className="h-6 w-6 text-primary" />
+      <div className="min-h-screen bg-background flex flex-col">
+        {/* Header */}
+        <header className="border-b py-4">
+          <div className="container mx-auto px-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Link href="/" className="flex items-center gap-2">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary">
+                  <MessageSquare className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <span className="text-lg font-bold">Zynex CRM</span>
+              </Link>
             </div>
-            <CardTitle className="text-xl text-foreground">
-              {t("auth_checkEmail")}
-            </CardTitle>
-            <CardDescription className="text-muted-foreground">
-              {t("auth_confirmationEmail", { email })}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link
-              href={
-                inviteToken
-                  ? `/login?invite=${encodeURIComponent(inviteToken)}`
-                  : "/login"
-              }
-            >
-              <Button
-                variant="outline"
-                className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+            <div className="flex items-center gap-3">
+              <LanguageSwitcher />
+              <Link href="/login">
+                <Button variant="ghost" size="sm">{t("auth_login")}</Button>
+              </Link>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <div className="flex-1 flex items-center justify-center px-4 py-12">
+          <Card className="w-full max-w-md border-border bg-card">
+            <CardHeader className="items-center text-center">
+              <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                <CheckCircle className="h-6 w-6 text-primary" />
+              </div>
+              <CardTitle className="text-xl text-foreground">
+                {t("auth_checkEmail")}
+              </CardTitle>
+              <CardDescription className="text-muted-foreground">
+                {t("auth_confirmationEmail", { email })}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link
+                href={
+                  inviteToken
+                    ? `/login?invite=${encodeURIComponent(inviteToken)}`
+                    : "/login"
+                }
               >
-                {t("auth_backToSignIn")}
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+                <Button
+                  variant="outline"
+                  className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  {t("auth_backToSignIn")}
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Footer */}
+        <footer className="border-t py-6 px-4">
+          <div className="container mx-auto">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-6">
+                <Link href="/terms" className="hover:text-foreground transition-colors">
+                  {t("nav_terms")}
+                </Link>
+                <Link href="/privacy" className="hover:text-foreground transition-colors">
+                  {t("nav_privacy")}
+                </Link>
+              </div>
+              <p>© 2024 Zynex SRL. {t("footer_copyright")}</p>
+            </div>
+          </div>
+        </footer>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md border-border bg-card">
-        <CardHeader className="items-center text-center">
-          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            {inviteToken ? (
-              <UsersRound className="h-6 w-6 text-primary" />
-            ) : (
-              <MessageSquare className="h-6 w-6 text-primary" />
-            )}
-          </div>
-          <CardTitle className="text-xl text-foreground">
-            {inviteToken 
-              ? t("auth_createAccountAndJoin")
-              : t("auth_createAccount")}
-          </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            {inviteToken
-              ? t("auth_verifyEmailAndAccept")
-              : t("auth_getStartedZynex")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSignup} className="flex flex-col gap-4">
-            {error && (
-              <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                {error}
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <header className="border-b py-4">
+        <div className="container mx-auto px-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2">
+              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary">
+                <MessageSquare className="h-5 w-5 text-primary-foreground" />
               </div>
-            )}
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="fullName" className="text-muted-foreground">
-                {t("settings_fullName")}
-              </Label>
-              <Input
-                id="fullName"
-                type="text"
-                placeholder="Juan Pérez"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email" className="text-muted-foreground">
-                {t("auth_email")}
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="tu@correo.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password" className="text-muted-foreground">
-                {t("auth_password")}
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder={t("auth_atLeast6Chars")}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="confirmPassword" className="text-muted-foreground">
-                {t("auth_confirmPassword")}
-              </Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder={t("auth_repeatPassword")}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
-              />
-            </div>
-
-            <Button
-              type="submit"
-              disabled={loading}
-              className="mt-2 h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              {loading ? t("auth_creatingAccount") : t("auth_createAccount")}
-            </Button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            {t("auth_haveAccount")}{" "}
-            <Link
-              href={
-                inviteToken
-                  ? `/login?invite=${encodeURIComponent(inviteToken)}`
-                  : "/login"
-              }
-              className="text-primary hover:text-primary/80"
-            >
-              {t("auth_signIn")}
+              <span className="text-lg font-bold">Zynex CRM</span>
             </Link>
-          </p>
-        </CardContent>
-      </Card>
+          </div>
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher />
+            <Link href="/login">
+              <Button variant="ghost" size="sm">{t("auth_login")}</Button>
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="flex-1 flex items-center justify-center px-4 py-12">
+        <Card className="w-full max-w-md border-border bg-card">
+          <CardHeader className="items-center text-center">
+            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+              {inviteToken ? (
+                <UsersRound className="h-6 w-6 text-primary" />
+              ) : (
+                <MessageSquare className="h-6 w-6 text-primary" />
+              )}
+            </div>
+            <CardTitle className="text-xl text-foreground">
+              {inviteToken 
+                ? t("auth_createAccountAndJoin")
+                : t("auth_createAccount")}
+            </CardTitle>
+            <CardDescription className="text-muted-foreground">
+              {inviteToken
+                ? t("auth_verifyEmailAndAccept")
+                : t("auth_getStartedZynex")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSignup} className="flex flex-col gap-4">
+              {error && (
+                <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="fullName" className="text-muted-foreground">
+                  {t("settings_fullName")}
+                </Label>
+                <Input
+                  id="fullName"
+                  type="text"
+                  placeholder="Juan Pérez"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                  className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="email" className="text-muted-foreground">
+                  {t("auth_email")}
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="tu@correo.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="password" className="text-muted-foreground">
+                  {t("auth_password")}
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder={t("auth_atLeast6Chars")}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="confirmPassword" className="text-muted-foreground">
+                  {t("auth_confirmPassword")}
+                </Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder={t("auth_repeatPassword")}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="mt-2 h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              >
+                {loading ? t("auth_creatingAccount") : t("auth_createAccount")}
+              </Button>
+            </form>
+
+            <p className="mt-6 text-center text-sm text-muted-foreground">
+              {t("auth_haveAccount")}{" "}
+              <Link
+                href={
+                  inviteToken
+                    ? `/login?invite=${encodeURIComponent(inviteToken)}`
+                    : "/login"
+                }
+                className="text-primary hover:text-primary/80"
+              >
+                {t("auth_signIn")}
+              </Link>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Footer */}
+      <footer className="border-t py-6 px-4">
+        <div className="container mx-auto">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-6">
+              <Link href="/terms" className="hover:text-foreground transition-colors">
+                {t("nav_terms")}
+              </Link>
+              <Link href="/privacy" className="hover:text-foreground transition-colors">
+                {t("nav_privacy")}
+              </Link>
+            </div>
+            <p>© 2024 Zynex SRL. {t("footer_copyright")}</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

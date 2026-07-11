@@ -32,6 +32,7 @@ import {
   rateLimitResponse,
   RATE_LIMITS,
 } from "@/lib/rate-limit";
+import { checkLimit } from "@/lib/subscription/enforce";
 
 // Resolve the base URL we publish invite links under.
 //
@@ -177,6 +178,15 @@ export async function POST(request: Request) {
       RATE_LIMITS.adminAction,
     );
     if (!limit.success) return rateLimitResponse(limit);
+
+    // Check team member limit before creating invitation
+    const limitCheck = await checkLimit(ctx.accountId, "team_members", 1);
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        { error: limitCheck.error || "Team member limit exceeded" },
+        { status: 403 },
+      );
+    }
 
     const body = (await request.json().catch(() => null)) as
       | { role?: unknown; expiresInDays?: unknown; label?: unknown }

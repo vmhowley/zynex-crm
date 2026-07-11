@@ -43,7 +43,7 @@ export async function GET() {
     const { data, error } = await supabaseAdmin()
       .from("channel_configs")
       .select(
-        "id, channel, channel_id, status, connected_at, ig_business_account_id",
+        "id, channel, channel_id, status, connected_at",
       )
       .eq("account_id", accountId)
       .eq("status", "connected")
@@ -64,7 +64,7 @@ export async function GET() {
         channel_id: row.channel_id,
         status: row.status,
         connected_at: row.connected_at,
-        ig_business_account_id: row.ig_business_account_id,
+        ig_business_account_id: null,
       })),
     });
   } catch (err) {
@@ -116,16 +116,12 @@ export async function POST(request: Request) {
     }
 
     // Check if already exists
-    console.log("Checking existing channel:", { accountId, channel, channel_type: typeof channel });
-    
     const existing = await supabaseAdmin()
       .from("channel_configs")
       .select("id")
       .eq("account_id", accountId)
       .eq("channel", channel)
       .maybeSingle();
-
-    console.log("Existing channel:", existing);
 
     const encryptedToken = encrypt(access_token);
 

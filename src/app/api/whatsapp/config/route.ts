@@ -7,6 +7,7 @@ import {
   verifyPhoneNumber,
 } from '@/lib/whatsapp/meta-api'
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption'
+import { checkLimit } from '@/lib/subscription/enforce'
 
 /**
  * Resolve the caller's account_id from their profile. Inlined here
@@ -283,6 +284,17 @@ export async function POST(request: Request) {
     const sameNumber =
       existing?.channel_id === phone_number_id &&
       existing?.registered_at != null
+
+    // Check WhatsApp number limit before saving (only for new registrations)
+    if (!existing) {
+      const limitCheck = await checkLimit(accountId, 'whatsapp_numbers', 1);
+      if (!limitCheck.allowed) {
+        return NextResponse.json(
+          { error: limitCheck.error || 'WhatsApp number limit exceeded' },
+          { status: 403 }
+        );
+      }
+    }
 
     // Step 1: register the phone number for inbound webhooks.
     //

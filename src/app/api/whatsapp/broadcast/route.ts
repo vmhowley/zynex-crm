@@ -16,6 +16,7 @@ import {
   RATE_LIMITS,
 } from '@/lib/rate-limit'
 import type { ChannelType } from '@/types/channel'
+import { checkFeature } from '@/lib/subscription/enforce'
 
 interface BroadcastResult {
   phone: string
@@ -101,6 +102,15 @@ export async function POST(request: Request) {
         { error: 'Your profile is not linked to an account.' },
         { status: 403 },
       )
+    }
+
+    // Check if broadcasts feature is enabled for this account
+    const featureCheck = await checkFeature(accountId, 'broadcasts');
+    if (!featureCheck.allowed) {
+      return NextResponse.json(
+        { error: featureCheck.error || 'Broadcasts not available in your plan' },
+        { status: 403 },
+      );
     }
 
     const body = await request.json()

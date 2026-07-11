@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { getFlowTemplate, type Locale } from '@/lib/flows/templates'
+import { checkFeature } from '@/lib/subscription/enforce'
 
 /**
  * GET /api/flows — list the caller's flows.
@@ -65,6 +66,15 @@ export async function POST(request: Request) {
       { error: 'Your profile is not linked to an account.' },
       { status: 403 },
     )
+  }
+
+  // Check if flows feature is enabled for this account
+  const featureCheck = await checkFeature(accountId, 'flows');
+  if (!featureCheck.allowed) {
+    return NextResponse.json(
+      { error: featureCheck.error || 'Flows not available in your plan' },
+      { status: 403 },
+    );
   }
 
   const body = (await request.json().catch(() => null)) as

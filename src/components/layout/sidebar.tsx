@@ -8,6 +8,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useTotalUnread } from "@/hooks/use-total-unread";
 import { useUnreadNotifications } from "@/hooks/use-unread-notifications";
 import { useTranslations } from "@/hooks/use-translations";
+import { usePlanLimits } from "@/hooks/use-plan-limits";
+import { MiniUsageBar } from "@/components/subscription/usage-card";
 import {
   Bell,
   Crown,
@@ -26,6 +28,7 @@ import {
   Workflow,
   X,
   Zap,
+  BarChart3,
 } from "lucide-react";
 import type { AccountRole } from "@/lib/auth/roles";
 import {
@@ -89,7 +92,14 @@ const navItems: NavItem[] = [
   { href: "/flows", labelKey: "flows", icon: Workflow, beta: true },
 ];
 
+const SUPER_ADMIN_EMAILS = [
+  "admin@digitbillrd.com",
+  "admin@zynex.do",
+  "soporte@zynex.do"
+];
+
 const bottomNavItems: Array<{ href: string; labelKey: string; icon: typeof Settings; adminOnly?: boolean }> = [
+  { href: "/usage", labelKey: "usage", icon: BarChart3 },
   { href: "/settings", labelKey: "settings", icon: Settings },
   { href: "/admin/payments", labelKey: "pagos", icon: CreditCard, adminOnly: true },
 ];
@@ -105,6 +115,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const { profile, profileLoading, account, accountRole, signOut } = useAuth();
   const totalUnread = useTotalUnread();
   const unreadNotifications = useUnreadNotifications();
+  const { limits, loading: limitsLoading } = usePlanLimits();
 
   const showAccountStrip =
     !profileLoading &&
@@ -233,7 +244,10 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
           <ul className="flex flex-col gap-1">
             {bottomNavItems
-              .filter((item) => !item.adminOnly || accountRole === "owner")
+              .filter((item) => {
+                if (!item.adminOnly) return true;
+                return profile?.email && SUPER_ADMIN_EMAILS.includes(profile.email);
+              })
               .map((item) => {
               const isActive = pathname.startsWith(item.href);
               return (
@@ -255,6 +269,39 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             })}
           </ul>
         </nav>
+
+        {/* Usage Widget - Quick View */}
+        {limits && !limitsLoading && (
+          <div className="mx-3 mb-3 rounded-lg border border-border bg-muted/30 p-3">
+            <Link
+              href="/usage"
+              className="flex items-center justify-between mb-2 text-xs font-medium text-foreground hover:text-primary transition-colors"
+            >
+              <span>{t("nav_usage")}</span>
+              <span className="text-muted-foreground text-[10px]">View all</span>
+            </Link>
+            <div className="space-y-2">
+              <MiniUsageBar
+                label="Contactos"
+                current={limits.contacts.current}
+                limit={limits.contacts.limit}
+                unlimited={limits.contacts.unlimited}
+              />
+              <MiniUsageBar
+                label="Miembros"
+                current={limits.team_members.current}
+                limit={limits.team_members.limit}
+                unlimited={limits.team_members.unlimited}
+              />
+              <MiniUsageBar
+                label="WhatsApp"
+                current={limits.whatsapp_numbers.current}
+                limit={limits.whatsapp_numbers.limit}
+                unlimited={limits.whatsapp_numbers.unlimited}
+              />
+            </div>
+          </div>
+        )}
 
         <div className="shrink-0 border-t border-border p-3">
           {showAccountStrip && account?.name ? (

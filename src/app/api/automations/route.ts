@@ -7,6 +7,7 @@ import {
   validateStepsForActivation,
   validateTriggerForActivation,
 } from '@/lib/automations/validate'
+import { checkFeature } from '@/lib/subscription/enforce'
 
 export async function GET() {
   const supabase = await createClient()
@@ -44,6 +45,15 @@ export async function POST(request: Request) {
       { error: 'Your profile is not linked to an account.' },
       { status: 403 },
     )
+  }
+
+  // Check if automations feature is enabled for this account
+  const featureCheck = await checkFeature(accountId, 'automations');
+  if (!featureCheck.allowed) {
+    return NextResponse.json(
+      { error: featureCheck.error || 'Automations not available in your plan' },
+      { status: 403 },
+    );
   }
 
   const body = await request.json().catch(() => null)

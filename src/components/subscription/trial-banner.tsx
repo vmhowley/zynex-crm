@@ -57,8 +57,33 @@ export function TrialBanner({ onDismiss }: TrialBannerProps) {
   if (loading || !status) return null;
 
   const isTrial = status.status === "trial";
+  const isSuspended = status.status === "suspended";
   const isExpired = isTrial && status.days_remaining !== null && status.days_remaining <= 0;
   const isExpiringSoon = isTrial && status.days_remaining !== null && status.days_remaining <= 3 && status.days_remaining > 0;
+
+  // Mostrar banner de cuenta suspendida
+  if (isSuspended) {
+    return (
+      <div className="bg-destructive/10 border border-destructive/50 text-destructive-foreground">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+            <div>
+              <p className="font-medium">Tu cuenta está suspendida</p>
+              <p className="text-sm text-destructive/80">
+                Contacta con soporte para reactivar tu cuenta
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link href="/account/suspended" className={buttonVariants({ size: "sm", variant: "outline" })}>
+              Ver Detalles
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isTrial && status.status !== "active") return null;
 

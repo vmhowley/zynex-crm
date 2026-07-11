@@ -70,11 +70,47 @@ export async function middleware(request: NextRequest) {
   }
 
   // Protected pages - redirect to login if not authenticated
-  const protectedPaths = ['/dashboard', '/inbox', '/contacts', '/pipelines', '/broadcasts', '/automations', '/settings']
+  const protectedPaths = ['/dashboard', '/inbox', '/contacts', '/pipelines', '/broadcasts', '/automations', '/settings', '/flows']
   if (!user && protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return withRefreshedCookies(NextResponse.redirect(url))
+  }
+
+  // Check if account is suspended - redirect to suspended page
+  // Skip for public pages, auth pages, and the suspended page itself
+  const publicPaths = ['/login', '/signup', '/forgot-password', '/pricing', '/docs', '/account/suspended', '/api', '/_next']
+  if (user && !publicPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
+    // Get user profile to check account_id
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('account_id')
+      .eq('user_id', user.id)
+      .single()
+
+    if (profile?.account_id) {
+      // Check subscription status
+      const { data: subscription } = await supabase
+        .from('subscriptions')
+        .select('status, trial_ends_at')
+        .eq('account_id', profile.account_id)
+        .single()
+
+      if (subscription) {
+        const isSuspended = subscription.status === 'suspended'
+        const isTrialExpired = subscription.status === 'trial' && 
+          subscription.trial_ends_at && 
+          new Date(subscription.trial_ends_at) < new Date()
+
+        // Redirect to suspended page if suspended or trial expired
+        if (isSuspended || isTrialExpired) {
+          const url = request.nextUrl.clone()
+          url.pathname = '/account/suspended'
+          url.search = ''
+          return withRefreshedCookies(NextResponse.redirect(url))
+        }
+      }
+    }
   }
 
   // API routes that need auth (not webhooks)

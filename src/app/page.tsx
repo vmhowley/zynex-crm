@@ -389,7 +389,8 @@ export default function LandingPage() {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><a href="#" className="hover:text-foreground">{t("landing_aboutUs")}</a></li>
                 <li><a href="https://wa.me/18096757686" className="hover:text-foreground">{t("landing_contact")}</a></li>
-                <li><a href="#" className="hover:text-foreground">{t("landing_terms")}</a></li>
+                <li><Link href="/terms" className="hover:text-foreground">{t("landing_terms")}</Link></li>
+                <li><Link href="/privacy" className="hover:text-foreground">{t("landing_privacy")}</Link></li>
               </ul>
             </div>
             

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CreditCard, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import { Loader2, CreditCard, CheckCircle, AlertCircle, Clock, History } from "lucide-react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -76,6 +76,7 @@ export function SubscriptionPanel() {
 
   const isTrial = status === "trial";
   const isActive = status === "active";
+  const isSuspended = status === "suspended";
   const isExpired = isTrial && daysRemaining !== null && daysRemaining <= 0;
 
   return (
@@ -92,17 +93,38 @@ export function SubscriptionPanel() {
         </Link>
       </div>
 
+      {isSuspended && (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-destructive">Tu cuenta está suspendida</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Contacta con soporte para reactivar tu cuenta.
+              </p>
+              <Link href="/account/suspended" className="text-sm underline mt-2 inline-block">
+                Ver detalles
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-xl">{plan.name}</CardTitle>
             <Badge
-              variant={isActive ? "default" : isExpired ? "destructive" : "secondary"}
+              variant={isActive ? "default" : isSuspended || isExpired ? "destructive" : "secondary"}
               className="flex items-center gap-1"
             >
               {isActive ? (
                 <>
                   <CheckCircle className="h-3 w-3" /> Activo
+                </>
+              ) : isSuspended ? (
+                <>
+                  <AlertCircle className="h-3 w-3" /> Suspendido
                 </>
               ) : isExpired ? (
                 <>
@@ -179,6 +201,8 @@ export function SubscriptionPanel() {
           </div>
         </CardContent>
       </Card>
+
+
     </div>
   );
 }
