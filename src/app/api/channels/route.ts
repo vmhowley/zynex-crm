@@ -127,16 +127,20 @@ export async function POST(request: Request) {
 
     if (existing) {
       // Update existing
+      const updateData: Record<string, unknown> = {
+        channel_id: page_id,
+        access_token: encryptedToken,
+        status: "connected",
+        connected_at: new Date().toISOString(),
+      };
+      
+      if (verify_token) {
+        updateData.webhook_verify_token = verify_token;
+      }
+      
       const { error: updateError } = await supabaseAdmin()
         .from("channel_configs")
-        .update({
-          channel_id: page_id,
-          access_token: encryptedToken,
-          webhook_verify_token: verify_token || null,
-          ig_business_account_id: channel === "instagram" ? (ig_business_account_id || null) : null,
-          status: "connected",
-          connected_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq("id", existing.id);
 
       if (updateError) {
@@ -145,19 +149,23 @@ export async function POST(request: Request) {
       }
     } else {
       // Insert new
+      const insertData: Record<string, unknown> = {
+        account_id: accountId,
+        user_id: user.id,
+        channel,
+        channel_id: page_id,
+        access_token: encryptedToken,
+        status: "connected",
+        connected_at: new Date().toISOString(),
+      };
+      
+      if (verify_token) {
+        insertData.webhook_verify_token = verify_token;
+      }
+      
       const { error: insertError } = await supabaseAdmin()
         .from("channel_configs")
-        .insert({
-          account_id: accountId,
-          user_id: user.id,
-          channel,
-          channel_id: page_id,
-          access_token: encryptedToken,
-          webhook_verify_token: verify_token || null,
-          ig_business_account_id: channel === "instagram" ? (ig_business_account_id || null) : null,
-          status: "connected",
-          connected_at: new Date().toISOString(),
-        });
+        .insert(insertData);
 
       if (insertError) {
         console.error("Error inserting channel:", insertError);
