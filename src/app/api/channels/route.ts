@@ -129,7 +129,7 @@ export async function POST(request: Request) {
 
     const encryptedToken = encrypt(access_token);
 
-    if (existing) {
+    if (existing?.data) {
       // Update existing
       const updateData: Record<string, unknown> = {
         channel_id: page_id,
@@ -145,7 +145,7 @@ export async function POST(request: Request) {
       const { error: updateError } = await supabaseAdmin()
         .from("channel_configs")
         .update(updateData)
-        .eq("id", existing.id);
+        .eq("id", existing.data.id);
 
       if (updateError) {
         console.error("Error updating channel:", updateError);
