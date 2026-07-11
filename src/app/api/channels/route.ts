@@ -116,12 +116,16 @@ export async function POST(request: Request) {
     }
 
     // Check if already exists
+    console.log("Checking existing channel:", { accountId, channel, channel_type: typeof channel });
+    
     const existing = await supabaseAdmin()
       .from("channel_configs")
       .select("id")
       .eq("account_id", accountId)
       .eq("channel", channel)
       .maybeSingle();
+
+    console.log("Existing channel:", existing);
 
     const encryptedToken = encrypt(access_token);
 
