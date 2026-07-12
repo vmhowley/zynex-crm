@@ -42,7 +42,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "screenshot": "tsx scripts/obscura-screenshot.ts screenshot",
+    "test:e2e": "tsx scripts/obscura-screenshot.ts test",
+    "test:batch": "tsx scripts/obscura-screenshot.ts batch"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -75,6 +78,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "playwright": "^1.61.1",
     "prettier": "^3.9.1",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "tailwindcss": "^4",
