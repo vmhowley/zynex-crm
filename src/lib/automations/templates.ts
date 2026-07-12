@@ -10,6 +10,10 @@ export type TemplateSlug =
   | 'out_of_office'
   | 'lead_qualifier'
   | 'follow_up_reminder'
+  | 'instant_lead_response'
+  | 'lead_nurturing_sequence'
+  | 'customer_success_onboarding'
+  | 're_engagement_campaign'
 
 export interface TemplateStepSeed {
   step_type: AutomationStepType
@@ -122,6 +126,188 @@ export const AUTOMATION_TEMPLATES: Record<TemplateSlug, AutomationTemplateDefini
           text:
             "Just circling back — did you have any other questions for us? Happy to help!",
         },
+      },
+    ],
+  },
+  instant_lead_response: {
+    slug: 'instant_lead_response',
+    name: '⚡ Respuesta Instantánea a Leads',
+    description: 'Responde inmediatamente a nuevos leads, clasifica y asigna a un agente en segundos.',
+    trigger_type: 'first_inbound_message',
+    trigger_config: {},
+    steps: [
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: "¡Hola! 👋 Gracias por contactarnos. Un agente te atenderá en breve. Mientras tanto, cuéntanos: ¿en qué podemos ayudarte?",
+        },
+      },
+      {
+        step_type: 'wait',
+        step_config: { amount: 30, unit: 'seconds' },
+      },
+      {
+        step_type: 'add_tag',
+        step_config: { tag_id: 'lead-nuevo' },
+      },
+      {
+        step_type: 'assign_conversation',
+        step_config: { mode: 'round_robin' },
+      },
+    ],
+  },
+  lead_nurturing_sequence: {
+    slug: 'lead_nurturing_sequence',
+    name: '🌱 Nutrición de Leads (7 días)',
+    description: 'Secuencia de 7 días para convertir leads fríos en clientes. Envía valor automáticamente.',
+    trigger_type: 'tag_added',
+    trigger_config: { tags: ['lead-nuevo'] },
+    steps: [
+      {
+        step_type: 'wait',
+        step_config: { amount: 1, unit: 'days' },
+      },
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: "¡Hola! 👋 Solo quería asegurarme de que resolver todas tus dudas. ¿Hay algo específico en lo que pueda ayudarte hoy?",
+        },
+      },
+      {
+        step_type: 'wait',
+        step_config: { amount: 2, unit: 'days' },
+      },
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: "Te comparto algunos casos de éxito de clientes como tú que han transformado su negocio con nuestra solución: [casos de éxito]",
+        },
+      },
+      {
+        step_type: 'add_tag',
+        step_config: { tag_id: 'lead-nurturing' },
+      },
+      {
+        step_type: 'wait',
+        step_config: { amount: 3, unit: 'days' },
+      },
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: "Tengo una oferta especial por tiempo limitado para nuevos clientes. ¿Te interesa?Podemos agendarte una demo personalizada.",
+        },
+      },
+      {
+        step_type: 'wait',
+        step_config: { amount: 1, unit: 'days' },
+      },
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: "Esta es la última oportunidad de la oferta especial. ¿Decidiste? Quedamos a tu disposición.",
+        },
+      },
+    ],
+  },
+  customer_success_onboarding: {
+    slug: 'customer_success_onboarding',
+    name: '🎉 Onboarding de Cliente (30 días)',
+    description: 'Secuencia de onboarding para nuevos clientes. Asegura que maximalicen el valor del producto.',
+    trigger_type: 'tag_added',
+    trigger_config: { tags: ['cliente-nuevo'] },
+    steps: [
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: "¡Bienvenido a Zynex! 🎉 Gracias por confiar en nosotros. Un miembro de nuestro equipo te contactará en las próximas horas para el onboarding.",
+        },
+      },
+      {
+        step_type: 'wait',
+        step_config: { amount: 4, unit: 'hours' },
+      },
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: "¿Ya conociste todas las funcionalidades? Te recomiendo nuestra guía de inicio rápido: [enlace]",
+        },
+      },
+      {
+        step_type: 'add_tag',
+        step_config: { tag_id: 'onboarding' },
+      },
+      {
+        step_type: 'wait',
+        step_config: { amount: 3, unit: 'days' },
+      },
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: "¡Hola! ¿Cómo va tu experiencia? ¿Hay algo que podamos mejorar? Estamos aquí para ayudarte.",
+        },
+      },
+      {
+        step_type: 'wait',
+        step_config: { amount: 7, unit: 'days' },
+      },
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: "¿Sabías que puedes integrar más herramientas? Te muestro cómo maximizar tu inversión. ¿Agendamos una llamada?",
+        },
+      },
+      {
+        step_type: 'wait',
+        step_config: { amount: 14, unit: 'days' },
+      },
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: "¡Felices 30 días con nosotros! 🎂 ¿Qué tal ha sido tu experiencia? Nos encantaría conocer tu feedback.",
+        },
+      },
+    ],
+  },
+  re_engagement_campaign: {
+    slug: 're_engagement_campaign',
+    name: '🔥 Re-activa Leads Inactivos',
+    description: 'Recupera leads que no han respondido en 14+ días. Secuencia de win-back.',
+    trigger_type: 'tag_added',
+    trigger_config: { tags: ['inactivo'] },
+    steps: [
+      {
+        step_type: 'wait',
+        step_config: { amount: 1, unit: 'days' },
+      },
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: "¡Hola! Notamos que no hemos sabido de ti lately. ¿Todo bien? Estamos aquí si necesitas algo.",
+        },
+      },
+      {
+        step_type: 'wait',
+        step_config: { amount: 3, unit: 'days' },
+      },
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: "Te extrañamos 🤗 Aquí hay un video corto de nuevas funcionalidades que quizás no conocías: [video]",
+        },
+      },
+      {
+        step_type: 'wait',
+        step_config: { amount: 5, unit: 'days' },
+      },
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: "Última llamada ⏰ tenemos una oferta especial solo para ti. ¿Te interesa rejuvenecer tu plan?",
+        },
+      },
+      {
+        step_type: 'add_tag',
+        step_config: { tag_id: 're-engaged' },
       },
     ],
   },
