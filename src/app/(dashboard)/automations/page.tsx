@@ -45,25 +45,13 @@ import { triggerMeta, formatRelative } from "@/lib/automations/trigger-meta"
 import { cn } from "@/lib/utils"
 
 const TEMPLATE_ORDER: TemplateSlug[] = [
-  "welcome_message",
-  "out_of_office",
-  "lead_qualifier",
-  "follow_up_reminder",
-  "instant_lead_response",
-  "lead_nurturing_sequence",
+  "lead_distribution",
   "customer_success_onboarding",
-  "re_engagement_campaign",
 ]
 
 const TEMPLATE_ICON: Record<TemplateSlug, typeof Zap> = {
-  welcome_message: MessageCircle,
-  out_of_office: Clock,
-  lead_qualifier: Users,
-  follow_up_reminder: PhoneCall,
-  instant_lead_response: Zap,
-  lead_nurturing_sequence: Users,
+  lead_distribution: Zap,
   customer_success_onboarding: Users,
-  re_engagement_campaign: PhoneCall,
 }
 
 export default function AutomationsPage() {
@@ -165,7 +153,7 @@ export default function AutomationsPage() {
     )
   }
 
-  const showTemplates = automations.length < 3
+  const showTemplates = true
 
   return (
     <div className="space-y-6">

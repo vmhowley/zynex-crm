@@ -41,8 +41,10 @@ import {
 } from "./meta-send";
 import { decideFallback, resolveFallbackPolicy } from "./fallback";
 import {
+  type AssignAgentNodeConfig,
   type CollectInputNodeConfig,
   type ConditionNodeConfig,
+  type CreateDealNodeConfig,
   type DispatchInboundInput,
   type DispatchInboundResult,
   type FlowNodeRow,
@@ -118,7 +120,9 @@ export function isAutoAdvancing(node_type: string): boolean {
     node_type === "send_media" ||
     node_type === "condition" ||
     node_type === "set_tag" ||
-    node_type === "http_fetch"
+    node_type === "http_fetch" ||
+    node_type === "assign_agent" ||
+    node_type === "create_deal"
   );
 }
 
@@ -227,7 +231,7 @@ async function loadFlow(
  * cleanly (every subsequent .get() returns undefined → the run
  * fails with node_not_found, same as the old per-node lookup).
  */
-async function loadAllNodes(
+export async function loadAllNodes(
   db: AdminClient,
   flowId: string,
 ): Promise<Map<string, FlowNodeRow>> {
@@ -574,7 +578,7 @@ async function endRun(
 // new current_node_key before returning.
 // ============================================================
 
-async function advanceFromNodeKey(
+export async function advanceFromNodeKey(
   db: AdminClient,
   run: FlowRunRow,
   startNodeKey: string,
@@ -738,12 +742,22 @@ async function advanceFromNodeKey(
       const cfg = node.config as unknown as SetTagNodeConfig;
       try {
         if (cfg.mode === "add") {
+          console.log('[FLOW] Adding tag:', cfg.tag_id, 'to contact:', run.contact_id)
           await db
             .from("contact_tags")
             .upsert(
               { contact_id: run.contact_id!, tag_id: cfg.tag_id },
               { onConflict: "contact_id,tag_id" },
             );
+          const { runAutomationsForTrigger } = await import('@/lib/automations/engine')
+          console.log('[FLOW] Triggering automations for tag_added:', cfg.tag_id)
+          await runAutomationsForTrigger({
+            accountId: run.account_id,
+            triggerType: 'tag_added',
+            contactId: run.contact_id,
+            context: { tag_id: cfg.tag_id },
+          })
+          console.log('[FLOW] Automations triggered')
         } else {
           await db
             .from("contact_tags")
@@ -826,6 +840,57 @@ async function advanceFromNodeKey(
     if (node.node_type === "handoff") {
       await executeHandoff(db, run, node);
       return { outcome: "handed_off" };
+    }
+    if (node.node_type === "assign_agent") {
+      const cfg = node.config as unknown as { mode: string; agent_id?: string; next_node_key: string };
+      let agentId = cfg.agent_id;
+      if (cfg.mode === "round_robin") {
+        const { data: members } = await db
+          .from("account_members")
+          .select("user_id")
+          .eq("account_id", run.account_id)
+          .eq("role", "agent");
+        if (members && members.length > 0) {
+          const memberIndex = Math.floor(Math.random() * members.length);
+          agentId = members[memberIndex].user_id;
+        }
+      }
+      if (agentId) {
+        await db
+          .from("conversations")
+          .update({ assigned_to: agentId, status: "open" })
+          .eq("id", run.conversation_id);
+        await logEvent(db, run.id, "node_entered", node.node_key, {
+          assigned_to: agentId,
+          advancing_to: cfg.next_node_key,
+        });
+      }
+      currentKey = cfg.next_node_key;
+      continue;
+    }
+    if (node.node_type === "create_deal") {
+      const cfg = node.config as unknown as { pipeline_id: string; stage_id?: string; title?: string; value?: number; next_node_key: string };
+      const { data: contact } = await db
+        .from("contacts")
+        .select("name, phone, email")
+        .eq("id", run.contact_id)
+        .single();
+      const dealTitle = cfg.title || `Deal from ${contact?.name || contact?.phone || "Unknown"}`;
+      await db.from("deals").insert({
+        account_id: run.account_id,
+        pipeline_id: cfg.pipeline_id,
+        stage_id: cfg.stage_id || null,
+        title: dealTitle,
+        value: cfg.value || 0,
+        contact_id: run.contact_id,
+        status: "open",
+      });
+      await logEvent(db, run.id, "node_entered", node.node_key, {
+        deal_title: dealTitle,
+        advancing_to: cfg.next_node_key,
+      });
+      currentKey = cfg.next_node_key;
+      continue;
     }
     if (node.node_type === "end") {
       await logEvent(db, run.id, "completed", node.node_key);

@@ -186,6 +186,10 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
       return { method: "POST", url: "", headers: {}, body: "", next_node_key: "" };
     case "handoff":
       return { note: "" };
+    case "assign_agent":
+      return { mode: "round_robin", agent_id: "", next_node_key: "" };
+    case "create_deal":
+      return { pipeline_id: "", stage_id: "", title: "Nuevo Lead", value: 0, next_node_key: "" };
     case "end":
       return {};
   }
@@ -330,6 +334,10 @@ export function FlowEditorProvider({
 
   // ---- Save (PUT) ----
   const save = useCallback(async () => {
+    if (!canActivate) {
+      toast.error("Fix the validation issues before saving.");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`/api/flows/${initialFlow.id}`, {

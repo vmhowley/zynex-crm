@@ -133,8 +133,9 @@ export function validateFlowForActivation(
     const reached = reachableFromEntry(flow.entry_node_id, nodes);
     for (const n of nodes) {
       if (!reached.has(n.node_key)) {
+        const nodeRequiresConnection = ["assign_agent", "create_deal"].includes(n.node_type);
         issues.push({
-          severity: "warning",
+          severity: nodeRequiresConnection ? "error" : "warning",
           scope: "node",
           node_key: n.node_key,
           message: `Node "${n.node_key}" is unreachable from the entry node.`,
@@ -767,6 +768,29 @@ function validateNode(
       // beyond their existence.
       break;
 
+    case "assign_agent":
+    case "create_deal": {
+      const cfg = node.config as { next_node_key?: string };
+      if (!cfg.next_node_key) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: `${node.node_type === 'assign_agent' ? 'Assign agent' : 'Create deal'} node must point to a next node.`,
+        });
+      } else if (!knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: `${node.node_type} points to non-existent node "${cfg.next_node_key}".`,
+        });
+      }
+      break;
+    }
+
     default:
       issues.push({
         severity: "error",
@@ -811,7 +835,10 @@ function outgoingEdges(node: NodeInput): string[] {
     case "send_message":
     case "send_media":
     case "collect_input":
-    case "set_tag": {
+    case "set_tag":
+    case "http_fetch":
+    case "assign_agent":
+    case "create_deal": {
       const cfg = node.config as { next_node_key?: string };
       return cfg.next_node_key ? [cfg.next_node_key] : [];
     }
@@ -846,6 +873,8 @@ function outgoingEdges(node: NodeInput): string[] {
       return out;
     }
     case "handoff":
+    case "assign_agent":
+    case "create_deal":
     case "end":
     default:
       return [];

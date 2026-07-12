@@ -55,6 +55,7 @@ export interface DispatchInput {
  * recorded into automation_logs with status='failed'.
  */
 export async function runAutomationsForTrigger(input: DispatchInput): Promise<void> {
+  console.log('[AUTOMATIONS] runAutomationsForTrigger called:', input.triggerType, 'accountId:', input.accountId, 'contactId:', input.contactId, 'context:', input.context)
   try {
     const db = supabaseAdmin()
 
@@ -89,11 +90,19 @@ export async function runAutomationsForTrigger(input: DispatchInput): Promise<vo
       .eq('trigger_type', input.triggerType)
       .eq('is_active', true)
 
+    console.log('[AUTOMATIONS] Found automations:', automations?.length ?? 0, 'for trigger:', input.triggerType, 'accountId:', input.accountId)
+    if (automations && automations.length > 0) {
+      console.log('[AUTOMATIONS] Automation details:', JSON.stringify(automations.map(a => ({ id: a.id, trigger_type: a.trigger_type, trigger_config: a.trigger_config }))))
+    }
+
     if (error) {
       console.error('[automations] fetch failed:', error)
       return
     }
-    if (!automations || automations.length === 0) return
+    if (!automations || automations.length === 0) {
+      console.log('[AUTOMATIONS] No automations found for this trigger')
+      return
+    }
 
     for (const automation of automations as Automation[]) {
       if (!triggerMatches(automation, input.context)) continue
@@ -579,16 +588,26 @@ async function resolveConversationId(args: ExecuteArgs): Promise<string> {
 }
 
 function triggerMatches(automation: Automation, ctx: AutomationContext | undefined): boolean {
-  if (automation.trigger_type !== 'keyword_match') return true
-  const cfg = automation.trigger_config as KeywordMatchTriggerConfig
-  if (!cfg?.keywords || cfg.keywords.length === 0) return false
-  const text = (ctx?.message_text ?? '').toString()
-  if (!text) return false
-  const haystack = cfg.case_sensitive ? text : text.toLowerCase()
-  return cfg.keywords.some((raw) => {
-    const k = cfg.case_sensitive ? raw : raw.toLowerCase()
-    return cfg.match_type === 'exact' ? haystack === k : haystack.includes(k)
-  })
+  // keyword_match: verifica que el mensaje contenga las keywords
+  if (automation.trigger_type === 'keyword_match') {
+    const cfg = automation.trigger_config as KeywordMatchTriggerConfig
+    if (!cfg?.keywords || cfg.keywords.length === 0) return false
+    const text = (ctx?.message_text ?? '').toString()
+    if (!text) return false
+    const haystack = cfg.case_sensitive ? text : text.toLowerCase()
+    return cfg.keywords.some((raw) => {
+      const k = cfg.case_sensitive ? raw : raw.toLowerCase()
+      return cfg.match_type === 'exact' ? haystack === k : haystack.includes(k)
+    })
+  }
+  // tag_added: verifica que el tag agregado coincida
+  if (automation.trigger_type === 'tag_added') {
+    const cfg = automation.trigger_config as { tag_id?: string }
+    if (!cfg?.tag_id) return false
+    return ctx?.tag_id === cfg.tag_id
+  }
+  // Para otros triggers (new_message_received, first_inbound_message, etc), siempre coincide
+  return true
 }
 
 async function evaluateCondition(cfg: ConditionStepConfig, args: ExecuteArgs): Promise<boolean> {

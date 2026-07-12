@@ -107,6 +107,28 @@ export interface HandoffNodeConfig {
   assign_to?: string;
 }
 
+export interface AssignAgentNodeConfig {
+  /** Assignment mode: "round_robin" or specific agent ID */
+  mode: "round_robin" | "specific";
+  /** Agent UUID (required if mode is "specific") */
+  agent_id?: string;
+  /** Node to advance to after assignment */
+  next_node_key: string;
+}
+
+export interface CreateDealNodeConfig {
+  /** Pipeline UUID */
+  pipeline_id: string;
+  /** Stage UUID */
+  stage_id?: string;
+  /** Deal title */
+  title?: string;
+  /** Deal value */
+  value?: number;
+  /** Node to advance to after creation */
+  next_node_key: string;
+}
+
 /**
  * Captures the customer's next free-text reply into
  * `flow_runs.vars[var_key]`, then advances.
@@ -213,6 +235,8 @@ export type FlowNodeConfig =
   | { node_type: "set_tag"; config: SetTagNodeConfig }
   | { node_type: "http_fetch"; config: HttpFetchNodeConfig }
   | { node_type: "handoff"; config: HandoffNodeConfig }
+  | { node_type: "assign_agent"; config: AssignAgentNodeConfig }
+  | { node_type: "create_deal"; config: CreateDealNodeConfig }
   | { node_type: "end"; config: EndNodeConfig };
 
 export type FlowNodeType = FlowNodeConfig["node_type"];

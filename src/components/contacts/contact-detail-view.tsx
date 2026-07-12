@@ -17,6 +17,13 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +45,7 @@ import {
   X,
   DollarSign,
   LayoutTemplate,
+  Zap,
 } from 'lucide-react';
 
 interface ContactDetailViewProps {
@@ -65,6 +73,12 @@ export function ContactDetailView({
   // find-or-creates the conversation, so no inbound message is required.
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [sendingTemplate, setSendingTemplate] = useState(false);
+
+  // Flow - run manual flows on contact
+  const [flowsOpen, setFlowsOpen] = useState(false);
+  const [flows, setFlows] = useState<{ id: string; name: string; trigger_type: string }[]>([]);
+  const [loadingFlows, setLoadingFlows] = useState(false);
+  const [runningFlow, setRunningFlow] = useState(false);
 
   // Details tab
   const [editName, setEditName] = useState('');
@@ -295,6 +309,43 @@ export function ContactDetailView({
     }
   }
 
+  async function openFlowsDialog() {
+    setFlowsOpen(true);
+    setLoadingFlows(true);
+    const { data, error } = await supabase
+      .from('flows')
+      .select('id, name, trigger_type')
+      .eq('status', 'active')
+      .eq('trigger_type', 'manual');
+    
+    if (!error && data) {
+      setFlows(data);
+    }
+    setLoadingFlows(false);
+  }
+
+  async function runFlow(flowId: string) {
+    if (!contactId) return;
+    setRunningFlow(true);
+    
+    const res = await fetch(`/api/flows/${flowId}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contact_id: contactId }),
+    });
+    
+    const data = await res.json();
+    
+    if (res.ok && data.success) {
+      toast.success('Flow iniciado correctamente');
+      setFlowsOpen(false);
+    } else {
+      toast.error(data.error || 'Error al iniciar flow');
+    }
+    
+    setRunningFlow(false);
+  }
+
   async function saveCustomFields() {
     if (!contactId) return;
     setSavingCustom(true);
@@ -436,7 +487,7 @@ export function ContactDetailView({
                   </div>
                 </div>
               </div>
-              <div className="mt-3">
+              <div className="mt-3 flex gap-2">
                 <Button
                   size="sm"
                   onClick={() => setTemplatePickerOpen(true)}
@@ -449,6 +500,14 @@ export function ContactDetailView({
                     <LayoutTemplate className="size-4" />
                   )}
                   Send template
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={openFlowsDialog}
+                >
+                  <Zap className="size-4" />
+                  Run Flow
                 </Button>
               </div>
             </SheetHeader>
@@ -758,6 +817,46 @@ export function ContactDetailView({
       onOpenChange={setTemplatePickerOpen}
       onSelect={handleSendTemplate}
     />
+    <Dialog open={flowsOpen} onOpenChange={setFlowsOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Ejecutar Flow</DialogTitle>
+          <DialogDescription>
+            Selecciona un flow manual para ejecutar en este contacto
+          </DialogDescription>
+        </DialogHeader>
+        {loadingFlows ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="size-6 animate-spin" />
+          </div>
+        ) : flows.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4">
+            No hay flows manuales activos. Crea un flow con trigger "Manual" en la sección Flows.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {flows.map((flow) => (
+              <Button
+                key={flow.id}
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => runFlow(flow.id)}
+                disabled={runningFlow}
+              >
+                <Zap className="size-4 mr-2" />
+                {flow.name}
+              </Button>
+            ))}
+          </div>
+        )}
+        {runningFlow && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            Ejecutando flow...
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
     </>
   );
 }

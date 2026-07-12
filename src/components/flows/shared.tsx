@@ -28,7 +28,9 @@ import {
   PlayCircle,
   Tag,
   UserPlus,
+  UserCheck,
   Workflow,
+  Briefcase,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -52,6 +54,8 @@ export type NodeType =
   | 'set_tag'
   | 'http_fetch'
   | 'handoff'
+  | 'assign_agent'
+  | 'create_deal'
   | 'end';
 
 export interface BuilderNode {
@@ -168,6 +172,20 @@ export const NODE_META: Record<
     blurb: 'Hands the conversation to a human',
     category: 'flow',
   },
+  assign_agent: {
+    label: 'Assign agent',
+    icon: UserCheck,
+    color: 'text-blue-400',
+    blurb: 'Assigns conversation to an agent',
+    category: 'flow',
+  },
+  create_deal: {
+    label: 'Create deal',
+    icon: Briefcase,
+    color: 'text-green-400',
+    blurb: 'Creates a deal in the pipeline',
+    category: 'flow',
+  },
   end: {
     label: 'End',
     icon: Flag,
@@ -216,6 +234,8 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   set_tag: { l: 0.65, c: 0.15, h: 350 }, // pink
   http_fetch: { l: 0.65, c: 0.18, h: 270 }, // violet — outbound call
   handoff: { l: 0.65, c: 0.17, h: 16 }, // rose — hands off
+  assign_agent: { l: 0.62, c: 0.16, h: 200 }, // blue — assign to agent
+  create_deal: { l: 0.62, c: 0.18, h: 140 }, // green — create deal
   end: { l: 0.55, c: 0.01, h: 260 }, // neutral grey — terminal
 };
 
@@ -433,6 +453,14 @@ export function summarizeNode(node: BuilderNode): string | null {
     case 'handoff': {
       const note = typeof cfg.note === 'string' ? cfg.note : '';
       return note.length > 0 ? truncate(note) : null;
+    }
+    case 'assign_agent': {
+      const mode = cfg.mode === 'specific' ? 'Specific agent' : 'Round-robin';
+      return mode;
+    }
+    case 'create_deal': {
+      const title = typeof cfg.title === 'string' ? cfg.title : 'Nuevo Lead';
+      return `Deal: ${title}`;
     }
   }
 }

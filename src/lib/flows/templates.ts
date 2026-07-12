@@ -20,8 +20,10 @@
  */
 
 import type {
+  AssignAgentNodeConfig,
   CollectInputNodeConfig,
   ConditionNodeConfig,
+  CreateDealNodeConfig,
   HandoffNodeConfig,
   HttpFetchNodeConfig,
   KeywordTriggerConfig,
@@ -42,6 +44,8 @@ export type FlowTemplateNodeType =
   | "set_tag"
   | "http_fetch"
   | "handoff"
+  | "assign_agent"
+  | "create_deal"
   | "end";
 
 export interface FlowTemplateNode {
@@ -364,8 +368,40 @@ const LEAD_QUALIFICATION: FlowTemplate = {
     {
       node_key: "start",
       node_type: "start",
-      config: { next_node_key: "welcome" },
+      config: { next_node_key: "add_tag_lead" },
     },
+    // ── Add lead tag ───────────────────────────────────────
+    {
+      node_key: "add_tag_lead",
+      node_type: "set_tag",
+      config: {
+        mode: "add",
+        tag_id: "lead-nuevo",
+        next_node_key: "assign_agent",
+      } as SetTagNodeConfig,
+    },
+    // ── Assign agent (round-robin) ─────────────────────────
+    {
+      node_key: "assign_agent",
+      node_type: "assign_agent",
+      config: {
+        mode: "round_robin",
+        next_node_key: "create_deal",
+      } as AssignAgentNodeConfig,
+    },
+    // ── Create deal in pipeline ────────────────────────────
+    {
+      node_key: "create_deal",
+      node_type: "create_deal",
+      config: {
+        pipeline_id: "",
+        stage_id: "",
+        title: "Nuevo Lead",
+        value: 0,
+        next_node_key: "welcome",
+      } as CreateDealNodeConfig,
+    },
+    // ── Welcome message ─────────────────────────────────────
     {
       node_key: "welcome",
       node_type: "send_message",
@@ -581,12 +617,349 @@ const CUSTOMER_ONBOARDING: FlowTemplate = {
 // Registry
 // ============================================================
 
+// ============================================================
+// 6. Instant Lead Response — Calificación inmediata de leads
+// ============================================================
+const INSTANT_LEAD_RESPONSE: FlowTemplate = {
+  slug: "instant_lead_response",
+  name: "⚡ Respuesta Instantánea a Leads",
+  description: "Responde inmediatamente a nuevos leads, califica su necesidad y asigna al agente correcto.",
+  icon: "Zap",
+  trigger_type: "first_inbound_message",
+  trigger_config: {},
+  entry_node_id: "start",
+  nodes: [
+    {
+      node_key: "start",
+      node_type: "start",
+      config: { next_node_key: "greeting" },
+    },
+    {
+      node_key: "greeting",
+      node_type: "send_message",
+      config: {
+        text: { en: "👋 ¡Hola! Gracias por contactarnos. Un momento mientras entendemos tu necesidad.", es: "👋 ¡Hola! Gracias por contactarnos. Un momento mientras entendemos tu necesidad." },
+        next_node_key: "menu",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "menu",
+      node_type: "send_buttons",
+      config: {
+        text: { en: "¿En qué podemos ayudarte hoy?", es: "¿En qué podemos ayudarte hoy?" },
+        buttons: [
+          { reply_id: "demo", title: { en: "📊 Demo", es: "📊 Demo" }, next_node_key: "capture_demo" },
+          { reply_id: "info", title: { en: "❓ Info", es: "❓ Info" }, next_node_key: "capture_info" },
+          { reply_id: "soporte", title: { en: "🛟 Soporte", es: "🛟 Soporte" }, next_node_key: "soporte_handoff" },
+        ],
+      } as SendButtonsNodeConfig,
+    },
+    // ── Demo path ───────────────────────────────────────────────
+    {
+      node_key: "capture_demo",
+      node_type: "collect_input",
+      config: {
+        prompt_text: { en: "¿Cuántos usuarios aproximadamente necesitan?", es: "¿Cuántos usuarios aproximadamente necesitan?" },
+        var_key: "usuarios",
+        next_node_key: "demo_email",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "demo_email",
+      node_type: "collect_input",
+      config: {
+        prompt_text: { en: "Perfecto. ¿Cuál es tu email para agendar la demo?", es: "Perfecto. ¿Cuál es tu email para agendar la demo?" },
+        var_key: "email",
+        next_node_key: "demo_handoff",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "demo_handoff",
+      node_type: "set_tag",
+      config: {
+        mode: "add",
+        tag_id: "",
+        next_node_key: "end_demo",
+      } as SetTagNodeConfig,
+    },
+    {
+      node_key: "end_demo",
+      node_type: "send_message",
+      config: {
+        text: { en: "✅ ¡Gracias! Un agente te contactará pronto para agendar tu demo.", es: "✅ ¡Gracias! Un agente te contactará pronto para agendar tu demo." },
+        next_node_key: "handoff_demo",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "handoff_demo",
+      node_type: "handoff",
+      config: {
+        note: { en: "📊 LEAD QUALIFICADO — Interesado en DEMO. Usuarios: {{vars.usuarios}}, Email: {{vars.email}}", es: "📊 LEAD QUALIFICADO — Interesado en DEMO. Usuarios: {{vars.usuarios}}, Email: {{vars.email}}" },
+      } as HandoffNodeConfig,
+    },
+    // ── Info path ───────────────────────────────────────────────
+    {
+      node_key: "capture_info",
+      node_type: "collect_input",
+      config: {
+        prompt_text: { en: "¿Qué información necesitas?", es: "¿Qué información necesitas?" },
+        var_key: "pregunta",
+        next_node_key: "info_handoff",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "info_handoff",
+      node_type: "set_tag",
+      config: {
+        mode: "add",
+        tag_id: "",
+        next_node_key: "end_info",
+      } as SetTagNodeConfig,
+    },
+    {
+      node_key: "end_info",
+      node_type: "send_message",
+      config: {
+        text: { en: "✅ Gracias. Un agente te responderá con la información que necesitas.", es: "✅ Gracias. Un agente te responderá con la información que necesitas." },
+        next_node_key: "handoff_info",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "handoff_info",
+      node_type: "handoff",
+      config: {
+        note: { en: "❓ LEAD INFO — Pregunta: {{vars.pregunta}}", es: "❓ LEAD INFO — Pregunta: {{vars.pregunta}}" },
+      } as HandoffNodeConfig,
+    },
+    // ── Soporte path ───────────────────────────────────────────
+    {
+      node_key: "soporte_handoff",
+      node_type: "handoff",
+      config: {
+        note: { en: "🛟 SOLICITUD DE SOPORTE", es: "🛟 SOLICITUD DE SOPORTE" },
+      } as HandoffNodeConfig,
+    },
+    // ── Terminal ───────────────────────────────────────────────
+    {
+      node_key: "end",
+      node_type: "end",
+      config: {},
+    },
+  ],
+};
+
+// ============================================================
+// 7. Re-engagement — Recuperar leads inactivos (MANUAL - activarlo tú)
+// ============================================================
+const RE_ENGAGEMENT: FlowTemplate = {
+  slug: "re_engagement",
+  name: "🔥 Re-activa Leads Inactivos",
+  description: "Actívalo manualmente cuando detectes un lead inactivo. NO se activa solo.",
+  icon: "TrendingUp",
+  trigger_type: "manual",
+  trigger_config: {},
+  entry_node_id: "start",
+  nodes: [
+    {
+      node_key: "start",
+      node_type: "start",
+      config: { next_node_key: "welcome" },
+    },
+    {
+      node_key: "welcome",
+      node_type: "send_message",
+      config: {
+        text: { en: "¡Hola! 👋 Te extrañamos. ¿Todo bien? Estamos aquí si necesitas algo.", es: "¡Hola! 👋 Te extrañamos. ¿Todo bien? Estamos aquí si necesitas algo." },
+        next_node_key: "menu",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "menu",
+      node_type: "send_buttons",
+      config: {
+        text: { en: "¿Qué te gustaría hacer?", es: "¿Qué te gustaría hacer?" },
+        buttons: [
+          { reply_id: "volver", title: { en: "🔙 Volver", es: "🔙 Volver" }, next_node_key: "interested" },
+          { reply_id: "no_gracias", title: { en: "❌ No gracias", es: "❌ No gracias" }, next_node_key: "bye" },
+        ],
+      } as SendButtonsNodeConfig,
+    },
+    {
+      node_key: "interested",
+      node_type: "send_message",
+      config: {
+        text: { en: "🎉 ¡Genial! Tenemos una oferta especial para ti. ¿Te cuento?", es: "🎉 ¡Genial! Tenemos una oferta especial para ti. ¿Te cuento?" },
+        next_node_key: "offer",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "offer",
+      node_type: "send_message",
+      config: {
+        text: { en: "📱 Te ofrecen 30% de descuento en el primer mes. ¿Te interesa agendar una llamada?", es: "📱 Te ofrecen 30% de descuento en el primer mes. ¿Te interesa agendar una llamada?" },
+        next_node_key: "capture_phone",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "capture_phone",
+      node_type: "collect_input",
+      config: {
+        prompt_text: { en: "Déjame tu número y te contactamos", es: "Déjame tu número y te contactamos" },
+        var_key: "telefono",
+        next_node_key: "interested_handoff",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "interested_handoff",
+      node_type: "set_tag",
+      config: {
+        mode: "add",
+        tag_id: "",
+        next_node_key: "end_interested",
+      } as SetTagNodeConfig,
+    },
+    {
+      node_key: "end_interested",
+      node_type: "send_message",
+      config: {
+        text: { en: "✅ ¡Perfecto! Un agente te contactará pronto. 🎉", es: "✅ ¡Perfecto! Un agente te contactará pronto. 🎉" },
+        next_node_key: "handoff_interested",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "handoff_interested",
+      node_type: "handoff",
+      config: {
+        note: { en: "🔥 LEAD RE-ENGAGED — Tel: {{vars.telefono}}", es: "🔥 LEAD RE-ENGAGED — Tel: {{vars.telefono}}" },
+      } as HandoffNodeConfig,
+    },
+    {
+      node_key: "bye",
+      node_type: "send_message",
+      config: {
+        text: { en: "¡Ok! Quedamos aquí cuando necesites. 😊", es: "¡Ok! Quedamos aquí cuando necesites. 😊" },
+        next_node_key: "end",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "end",
+      node_type: "end",
+      config: {},
+    },
+  ],
+};
+
+// ============================================================
+// 8. Encuesta de Satisfacción Post-atención
+// ============================================================
+const SATISFACTION_SURVEY: FlowTemplate = {
+  slug: "satisfaction_survey",
+  name: "⭐ Encuesta de Satisfacción",
+  description: "Pregunta al cliente cómo estuvo su experiencia después de una atención.",
+  icon: "Star",
+  trigger_type: "keyword",
+  trigger_config: { keywords: ["encuesta", "feedback", "calificar"], match_type: "contains" },
+  entry_node_id: "start",
+  nodes: [
+    {
+      node_key: "start",
+      node_type: "start",
+      config: { next_node_key: "intro" },
+    },
+    {
+      node_key: "intro",
+      node_type: "send_message",
+      config: {
+        text: { en: "¡Gracias por tu tiempo! 😊 ¿Cómo fue tu experiencia con nosotros?", es: "¡Gracias por tu tiempo! 😊 ¿Cómo fue tu experiencia con nosotros?" },
+        next_node_key: "rating",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "rating",
+      node_type: "send_buttons",
+      config: {
+        text: { en: "Del 1 al 5, ¿cómo calificarías tu experiencia?", es: "Del 1 al 5, ¿cómo calificarías tu experiencia?" },
+        buttons: [
+          { reply_id: "1", title: { en: "⭐ 1", es: "⭐ 1" }, next_node_key: "bad_rating" },
+          { reply_id: "3", title: { en: "⭐⭐⭐ 3", es: "⭐⭐⭐ 3" }, next_node_key: "neutral_rating" },
+          { reply_id: "5", title: { en: "⭐⭐⭐⭐⭐ 5", es: "⭐⭐⭐⭐⭐ 5" }, next_node_key: "good_rating" },
+        ],
+      } as SendButtonsNodeConfig,
+    },
+    {
+      node_key: "bad_rating",
+      node_type: "send_message",
+      config: {
+        text: { en: "Lamentamos que no haya sido lo mejor. ¿Qué podríamos mejorar?", es: "Lamentamos que no haya sido lo mejor. ¿Qué podríamos mejorar?" },
+        next_node_key: "feedback_bad",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "feedback_bad",
+      node_type: "collect_input",
+      config: {
+        prompt_text: { en: "Cuéntanos más...", es: "Cuéntanos más..." },
+        var_key: "comentario",
+        next_node_key: "bad_handoff",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "bad_handoff",
+      node_type: "handoff",
+      config: {
+        note: { en: "⚠️ ENCUENTA NEGATIVA — Comentario: {{vars.comentario}}", es: "⚠️ ENCUENTA NEGATIVA — Comentario: {{vars.comentario}}" },
+      } as HandoffNodeConfig,
+    },
+    {
+      node_key: "neutral_rating",
+      node_type: "send_message",
+      config: {
+        text: { en: "Gracias. ¿Hay algo específico que podríamos mejorar?", es: "Gracias. ¿Hay algo específico que podríamos mejorar?" },
+        next_node_key: "feedback_neutral",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "feedback_neutral",
+      node_type: "collect_input",
+      config: {
+        prompt_text: { en: "Tu feedback nos ayuda...", es: "Tu feedback nos ayuda..." },
+        var_key: "comentario",
+        next_node_key: "end_survey",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "good_rating",
+      node_type: "send_message",
+      config: {
+        text: { en: "¡Excelente! 🎉 ¡Gracias! ¿Hay algo más en lo que podamos ayudarte?", es: "¡Excelente! 🎉 ¡Gracias! ¿Hay algo más en lo que podamos ayudarte?" },
+        next_node_key: "end_survey",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "end_survey",
+      node_type: "send_message",
+      config: {
+        text: { en: "¡Gracias por tu feedback! 💙", es: "¡Gracias por tu feedback! 💙" },
+        next_node_key: "end",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "end",
+      node_type: "end",
+      config: {},
+    },
+  ],
+};
+
 const TEMPLATES: Record<string, FlowTemplate> = {
   welcome_menu: WELCOME_MENU,
   faq_bot: FAQ_BOT,
   lead_capture: LEAD_CAPTURE,
   lead_qualification: LEAD_QUALIFICATION,
   customer_onboarding: CUSTOMER_ONBOARDING,
+  instant_lead_response: INSTANT_LEAD_RESPONSE,
+  re_engagement: RE_ENGAGEMENT,
+  satisfaction_survey: SATISFACTION_SURVEY,
 };
 
 export function getFlowTemplate(slug: string, lang?: Locale): FlowTemplate | null {

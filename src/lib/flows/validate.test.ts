@@ -420,6 +420,45 @@ describe("validateFlowForActivation — nodes", () => {
   });
 });
 
+describe("validateFlowForActivation — assign_agent and create_deal", () => {
+  const baseFlow = { ...validFlow, entry_node_id: "start" };
+
+  it("flags create_deal without next_node_key", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      [
+        { node_key: "start", node_type: "start", config: { next_node_key: "deal" } },
+        { node_key: "deal", node_type: "create_deal", config: { title: "Test", pipeline_id: "", stage_id: "", value: 0 } },
+      ],
+    );
+    expect(issues.some((i) => i.message.includes("Create deal") && i.message.includes("must point to a next node"))).toBe(true);
+  });
+
+  it("flags assign_agent without next_node_key", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      [
+        { node_key: "start", node_type: "start", config: { next_node_key: "agent" } },
+        { node_key: "agent", node_type: "assign_agent", config: { mode: "round_robin" } },
+      ],
+    );
+    expect(issues.some((i) => i.message.includes("Assign agent") && i.message.includes("must point to a next node"))).toBe(true);
+  });
+
+  it("passes when create_deal has valid next_node_key", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      [
+        { node_key: "start", node_type: "start", config: { next_node_key: "deal" } },
+        { node_key: "deal", node_type: "create_deal", config: { title: "Test", pipeline_id: "", stage_id: "", value: 0, next_node_key: "handoff" } },
+        { node_key: "handoff", node_type: "handoff", config: {} },
+      ],
+    );
+    const createDealErrors = issues.filter((i) => i.node_key === "deal" && i.severity === "error");
+    expect(createDealErrors).toEqual([]);
+  });
+});
+
 describe("validateFlowForActivation — send_media", () => {
   const baseFlow = { ...validFlow, entry_node_id: "s" };
   const nodesWith = (mediaConfig: Record<string, unknown>) => [
