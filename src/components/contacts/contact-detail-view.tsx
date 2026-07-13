@@ -227,26 +227,29 @@ export function ContactDetailView({
     setSavingTags(true);
 
     const isSelected = contactTagIds.includes(tagId);
+    const action = isSelected ? 'remove' : 'add';
 
-    if (isSelected) {
-      const { error } = await supabase
-        .from('contact_tags')
-        .delete()
-        .eq('contact_id', contactId)
-        .eq('tag_id', tagId);
-      if (!error) {
-        setContactTagIds((prev) => prev.filter((id) => id !== tagId));
+    try {
+      const response = await fetch('/api/contacts/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contact_id: contactId, tag_id: tagId, action }),
+      });
+
+      if (response.ok) {
+        if (isSelected) {
+          setContactTagIds((prev) => prev.filter((id) => id !== tagId));
+        } else {
+          setContactTagIds((prev) => [...prev, tagId]);
+        }
         onUpdated();
+      } else {
+        toast.error('Failed to update tag');
       }
-    } else {
-      const { error } = await supabase
-        .from('contact_tags')
-        .insert({ contact_id: contactId, tag_id: tagId });
-      if (!error) {
-        setContactTagIds((prev) => [...prev, tagId]);
-        onUpdated();
-      }
+    } catch {
+      toast.error('Failed to update tag');
     }
+
     setSavingTags(false);
   }
 
