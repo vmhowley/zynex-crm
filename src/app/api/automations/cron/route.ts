@@ -9,6 +9,8 @@ import type { AutomationContext } from '@/lib/automations/engine'
  * secret via the `x-cron-secret` header to match
  * `AUTOMATION_CRON_SECRET`.
  *
+ * Vercel Cron sends: Authorization: Bearer <AUTOMATION_CRON_SECRET>
+ *
  * The claim step (status = 'running') serves as a simple lock so
  * overlapping invocations don't double-process rows. Best-effort
  * only; expensive SELECT ... FOR UPDATE is avoided in favor of a
@@ -19,7 +21,8 @@ export async function GET(request: Request) {
   if (!expected) {
     return NextResponse.json({ error: 'cron not configured' }, { status: 503 })
   }
-  const supplied = request.headers.get('x-cron-secret')
+  const authHeader = request.headers.get('authorization') ?? ''
+  const supplied = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader
   if (supplied !== expected) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

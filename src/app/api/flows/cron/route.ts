@@ -31,11 +31,9 @@ export async function GET(request: Request) {
   if (!expected) {
     return NextResponse.json({ error: 'cron not configured' }, { status: 503 })
   }
-  // Constant-time compare so an attacker who can hit the endpoint
-  // can't recover the secret byte-by-byte from response-time deltas.
-  // Length pre-check is required by timingSafeEqual (throws otherwise)
-  // and leaks only the length itself, which isn't sensitive.
-  const supplied = request.headers.get('x-cron-secret') ?? ''
+  // Vercel Cron sends: Authorization: Bearer <CRON_SECRET>
+  const authHeader = request.headers.get('authorization') ?? ''
+  const supplied = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader
   const suppliedBuf = Buffer.from(supplied)
   const expectedBuf = Buffer.from(expected)
   if (
