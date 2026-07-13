@@ -21,8 +21,8 @@ import { resolveFallbackPolicy } from '@/lib/flows/fallback'
  * and this one) are independent operations; we keep them on separate
  * URLs so one failing doesn't block the other.
  *
- * Hosting: hit on a schedule (Vercel Cron / GitHub Actions / external
- * pinger). A 5-minute interval is more than enough for a 24h timeout
+ * Hosting: hit on a schedule (pg_cron / external pinger).
+ * A 5-minute interval is more than enough for a 24h timeout
  * default; once per hour would also be acceptable for low-volume
  * tenants.
  */
@@ -31,9 +31,7 @@ export async function GET(request: Request) {
   if (!expected) {
     return NextResponse.json({ error: 'cron not configured' }, { status: 503 })
   }
-  // Vercel Cron sends: Authorization: Bearer <CRON_SECRET>
-  const authHeader = request.headers.get('authorization') ?? ''
-  const supplied = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader
+  const supplied = request.headers.get('x-cron-secret') ?? ''
   const suppliedBuf = Buffer.from(supplied)
   const expectedBuf = Buffer.from(expected)
   if (

@@ -370,36 +370,15 @@ const LEAD_QUALIFICATION: FlowTemplate = {
       node_type: "start",
       config: { next_node_key: "add_tag_lead" },
     },
-    // ── Add lead tag ───────────────────────────────────────
+    // ── Add lead tag → automation handles assign_agent + create_deal ─
     {
       node_key: "add_tag_lead",
       node_type: "set_tag",
       config: {
         mode: "add",
         tag_id: "lead-nuevo",
-        next_node_key: "assign_agent",
-      } as SetTagNodeConfig,
-    },
-    // ── Assign agent (round-robin) ─────────────────────────
-    {
-      node_key: "assign_agent",
-      node_type: "assign_agent",
-      config: {
-        mode: "round_robin",
-        next_node_key: "create_deal",
-      } as AssignAgentNodeConfig,
-    },
-    // ── Create deal in pipeline ────────────────────────────
-    {
-      node_key: "create_deal",
-      node_type: "create_deal",
-      config: {
-        pipeline_id: "",
-        stage_id: "",
-        title: "Nuevo Lead",
-        value: 0,
         next_node_key: "welcome",
-      } as CreateDealNodeConfig,
+      } as SetTagNodeConfig,
     },
     // ── Welcome message ─────────────────────────────────────
     {
