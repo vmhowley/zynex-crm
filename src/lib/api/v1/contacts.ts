@@ -12,6 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { findExistingContact, findExistingContactByExternalId, isUniqueViolation } from '@/lib/contacts/dedupe';
 import { resolveImportTagIds } from '@/lib/contacts/resolve-import-tags';
 import { isValidE164 } from '@/lib/whatsapp/phone-utils';
+import { runAutomationsForTrigger } from '@/lib/automations/engine';
 
 /** Row select that embeds the contact's tags for serialization. */
 export const CONTACT_SELECT = '*, contact_tags(tags(*))';
@@ -319,6 +320,16 @@ export async function setContactTags(
       .from('contact_tags')
       .insert(toAdd.map((tag_id) => ({ contact_id: contactId, tag_id })));
     if (error) throw new ContactError('Failed to update contact tags', 500);
+
+    // Dispatch tag_added automation trigger for each newly added tag
+    for (const tagId of toAdd) {
+      runAutomationsForTrigger({
+        accountId,
+        triggerType: 'tag_added',
+        contactId,
+        context: { tag_id: tagId },
+      }).catch((err) => console.error('[automations] tag_added dispatch failed:', err));
+    }
   }
 }
 
