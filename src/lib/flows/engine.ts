@@ -607,6 +607,7 @@ export async function advanceFromNodeKey(
       node_type: node.node_type,
     });
 
+    console.log("[FLOW] Processing node:", node.node_key, "type:", node.node_type);
     if (node.node_type === "start") {
       currentKey = (node.config as unknown as StartNodeConfig).next_node_key;
       continue;
@@ -898,6 +899,7 @@ export async function advanceFromNodeKey(
       return { outcome: "completed" };
     }
     // Unknown node type — shouldn't happen given the CHECK constraint.
+    console.error("[FLOW] UNKNOWN NODE TYPE:", JSON.stringify(node));
     await logEvent(db, run.id, "error", node.node_key, {
       reason: `unknown_node_type:${node.node_type}`,
     });
@@ -1241,6 +1243,7 @@ async function startNewRun(
   }
 
   // Run the advance loop starting from the entry node.
+  console.log("[FLOW] Starting flow from entry:", flow.entry_node_id);
   const outcome = await advanceFromNodeKey(db, run, flow.entry_node_id!, nodes);
   return {
     consumed: true,
