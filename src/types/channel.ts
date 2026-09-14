@@ -12,6 +12,10 @@ export type ChannelConfig = {
   account_id: string
   user_id: string
   channel: ChannelType
+  /** Human-friendly label for this connection (e.g. Ventas, Soporte). */
+  display_name?: string
+  /** One primary connection per account/channel is kept for legacy send/settings paths. */
+  is_primary: boolean
   /** Platform-specific identifier (phone_number_id for WhatsApp, page_id for IG/FB) */
   channel_id: string
   /** WhatsApp Business Account ID (WhatsApp only) */
