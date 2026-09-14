@@ -201,9 +201,7 @@ export default function DashboardPage() {
 }
 
 function deltaLabel(delta: number, suffix: string): string {
-  const { t } = useTranslations()
-
-  if (delta === 0) return `${t('No change')} ${suffix}`
+  if (delta === 0) return `0 ${suffix}`
   const sign = delta > 0 ? '+' : ''
   return `${sign}${delta.toLocaleString()} ${suffix}`
 }

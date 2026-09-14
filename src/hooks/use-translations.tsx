@@ -21,14 +21,12 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const saved = localStorage.getItem("locale") as Locale;
-    if (saved && (saved === "es" || saved === "en")) {
-      setLocale(saved);
-    } else {
-      const browserLang = navigator.language.split("-")[0];
-      if (browserLang === "en") {
-        setLocale("en");
-      }
-    }
+    const browserLang = navigator.language.split("-")[0];
+    const nextLocale: Locale =
+      saved === "es" || saved === "en" ? saved : browserLang === "en" ? "en" : "es";
+
+    const timer = window.setTimeout(() => setLocale(nextLocale), 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const handleSetLocale = (newLocale: Locale) => {

@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+interface UsagePlanRow {
+  id: string;
+  name: string;
+  plan_type: string;
+  max_contacts: number | null;
+  max_team_members: number | null;
+  max_whatsapp_numbers: number | null;
+}
+
 export async function GET() {
   const supabase = await createClient();
 
@@ -33,7 +42,11 @@ export async function GET() {
     return NextResponse.json({ error: "No subscription found" }, { status: 404 });
   }
 
-  const plan = subscription.plans as any;
+  const rawPlan = subscription.plans as unknown as UsagePlanRow | UsagePlanRow[] | null;
+  const plan = Array.isArray(rawPlan) ? rawPlan[0] : rawPlan;
+  if (!plan) {
+    return NextResponse.json({ error: "Subscription plan not found" }, { status: 500 });
+  }
 
   const { data: usage } = await supabase
     .from("account_usage")

@@ -3,6 +3,23 @@ import { createClient } from "@/lib/supabase/server";
 export type LimitType = "contacts" | "team_members" | "whatsapp_numbers";
 export type FeatureType = "broadcasts" | "automations" | "flows" | "api";
 
+interface SubscriptionPlan {
+  name: string;
+  plan_type: string;
+  max_contacts: number | null;
+  max_team_members: number | null;
+  max_whatsapp_numbers: number | null;
+  broadcasts_enabled: boolean;
+  automations_enabled: boolean;
+  flows_enabled: boolean;
+  api_access: boolean;
+}
+
+function normalizePlan(value: unknown): SubscriptionPlan | null {
+  if (Array.isArray(value)) return (value[0] as SubscriptionPlan | undefined) ?? null;
+  return (value as SubscriptionPlan | null) ?? null;
+}
+
 /**
  * Usage data retrieved from account_usage table or computed
  */
@@ -37,7 +54,8 @@ export async function checkLimit(
     return { allowed: false, error: "No active subscription" };
   }
 
-  const plan = subscription.plans as any;
+  const plan = normalizePlan(subscription.plans);
+  if (!plan) return { allowed: false, error: "Subscription plan not found" };
   const limit = plan[`max_${limitType}`];
 
   if (limit === null || limit === -1) {
@@ -105,7 +123,8 @@ export async function checkFeature(
     return { allowed: false, error: "No active subscription" };
   }
 
-  const plan = subscription.plans as any;
+  const plan = normalizePlan(subscription.plans);
+  if (!plan) return { allowed: false, error: "Subscription plan not found" };
   const featureMap: Record<FeatureType, string> = {
     broadcasts: "broadcasts_enabled",
     automations: "automations_enabled",
@@ -254,7 +273,15 @@ export async function checkUsage(
     };
   }
 
-  const plan = subscription.plans as any;
+  const plan = normalizePlan(subscription.plans);
+  if (!plan) {
+    return {
+      allowed: false,
+      error: "Subscription plan not found",
+      usage: { contacts: 0, team_members: 0, whatsapp_numbers: 0 },
+      limits: { contacts: null, team_members: null, whatsapp_numbers: null },
+    };
+  }
   const limits = {
     contacts: plan.max_contacts,
     team_members: plan.max_team_members,

@@ -200,186 +200,25 @@ export function NodeConfigForm({
         />
       );
 
-    case "assign_agent": {
-      const mode = (cfg as { mode?: string }).mode ?? "round_robin";
-      const agentId = (cfg as { agent_id?: string }).agent_id ?? "";
-
-      const [agents, setAgents] = useState<{ id: string; name: string; email: string }[]>([]);
-      const [loading, setLoading] = useState(mode === "specific");
-
-      useEffect(() => {
-        if (mode !== "specific") return;
-        fetch("/api/account/members", { cache: "no-store" })
-          .then((res) => res.json())
-          .then((json) => {
-            setAgents(json.members ?? []);
-            setLoading(false);
-          })
-          .catch(() => setLoading(false));
-      }, [mode]);
-
-      const selectedAgent = agents.find((a) => a.id === agentId);
-
+    case "assign_agent":
       return (
-        <>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Assignment mode</label>
-            <Select
-              value={mode}
-              onValueChange={(v) => onUpdateConfig({ mode: v, agent_id: v === "round_robin" ? "" : agentId })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="round_robin">Round-robin</SelectItem>
-                <SelectItem value="specific">Specific agent</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {mode === "specific" && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Agent</label>
-              {loading ? (
-                <div className="text-sm text-muted-foreground">Loading...</div>
-              ) : (
-                <select
-                  className="w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none disabled:opacity-50"
-                  value={agentId}
-                  onChange={(e) => onUpdateConfig({ agent_id: e.target.value })}
-                >
-                  <option value="">Select an agent…</option>
-                  {agents.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name || a.email}
-                    </option>
-                  ))}
-                  {agentId && !selectedAgent && (
-                    <option value={agentId}>{agentId} (unknown)</option>
-                  )}
-                </select>
-              )}
-            </div>
-          )}
-          <NextNodeRow
-            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
-            allNodes={allNodes}
-            currentKey={node.node_key}
-            onChange={(v) => onUpdateConfig({ next_node_key: v })}
-            label="Advances to"
-          />
-        </>
+        <AssignAgentForm
+          cfg={cfg as AssignAgentCfg}
+          allNodes={allNodes}
+          currentKey={node.node_key}
+          onUpdateConfig={onUpdateConfig}
+        />
       );
-    }
 
-    case "create_deal": {
-      const title = (cfg as { title?: string }).title ?? "Nuevo Lead";
-      const value = (cfg as { value?: number }).value ?? 0;
-      const pipelineId = (cfg as { pipeline_id?: string }).pipeline_id ?? "";
-      const stageId = (cfg as { stage_id?: string }).stage_id ?? "";
-
-      const [pipelines, setPipelines] = useState<{ id: string; name: string }[]>([]);
-      const [stages, setStages] = useState<{ id: string; name: string; pipeline_id: string }[]>([]);
-      const [loading, setLoading] = useState(true);
-
-      useEffect(() => {
-        const supabase = createClient();
-        Promise.all([
-          supabase.from("pipelines").select("id, name").order("name"),
-          supabase.from("pipeline_stages").select("id, name, pipeline_id").order("position"),
-        ]).then(([pipelinesRes, stagesRes]) => {
-          setPipelines((pipelinesRes.data as { id: string; name: string }[] | null) ?? []);
-          setStages((stagesRes.data as { id: string; name: string; pipeline_id: string }[] | null) ?? []);
-          setLoading(false);
-        });
-      }, []);
-
-      const stageOptions = stages.filter((s) => s.pipeline_id === pipelineId);
-      const selectedPipeline = pipelines.find((p) => p.id === pipelineId);
-      const selectedStage = stageOptions.find((s) => s.id === stageId);
-
-      const handlePipelineChange = (nextPipelineId: string) => {
-        const firstStage = stages.find((s) => s.pipeline_id === nextPipelineId);
-        onUpdateConfig({
-          pipeline_id: nextPipelineId,
-          stage_id: firstStage?.id ?? "",
-        });
-      };
-
-      if (loading) {
-        return <div className="text-sm text-muted-foreground">Loading...</div>;
-      }
-
-      const selectClass = "w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none disabled:opacity-50";
-
+    case "create_deal":
       return (
-        <>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Deal title</label>
-            <Input
-              placeholder="e.g. Nuevo Lead"
-              value={title}
-              onChange={(e) => onUpdateConfig({ title: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Value</label>
-            <Input
-              type="number"
-              placeholder="0"
-              value={value}
-              onChange={(e) => onUpdateConfig({ value: Number(e.target.value) })}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Pipeline</label>
-            <select
-              className={selectClass}
-              value={pipelineId}
-              onChange={(e) => handlePipelineChange(e.target.value)}
-            >
-              <option value="">Select a pipeline…</option>
-              {pipelines.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-              {pipelineId && !selectedPipeline && (
-                <option value={pipelineId}>{pipelineId} (unknown)</option>
-              )}
-            </select>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Stage</label>
-            <select
-              className={selectClass}
-              value={stageId}
-              onChange={(e) => onUpdateConfig({ stage_id: e.target.value })}
-              disabled={!pipelineId || stageOptions.length === 0}
-            >
-              <option value="">
-                {pipelineId ? "Select a stage…" : "Select a pipeline first…"}
-              </option>
-              {stageOptions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-              {stageId && pipelineId && !selectedStage && (
-                <option value={stageId}>{stageId} (unknown)</option>
-              )}
-            </select>
-          </div>
-          <NextNodeRow
-            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
-            allNodes={allNodes}
-            currentKey={node.node_key}
-            onChange={(v) => onUpdateConfig({ next_node_key: v })}
-            label="Advances to"
-          />
-        </>
+        <CreateDealForm
+          cfg={cfg as CreateDealCfg}
+          allNodes={allNodes}
+          currentKey={node.node_key}
+          onUpdateConfig={onUpdateConfig}
+        />
       );
-    }
 
     case "end":
       return (
@@ -399,6 +238,203 @@ export function NodeConfigForm({
         />
       );
   }
+}
+
+// ============================================================
+// assign_agent / create_deal
+// ============================================================
+
+interface AssignAgentCfg {
+  mode?: string;
+  agent_id?: string;
+  next_node_key?: string;
+}
+
+function AssignAgentForm({
+  cfg,
+  allNodes,
+  currentKey,
+  onUpdateConfig,
+}: {
+  cfg: AssignAgentCfg;
+  allNodes: BuilderNode[];
+  currentKey: string;
+  onUpdateConfig: (patch: Record<string, unknown>) => void;
+}) {
+  const mode = cfg.mode ?? "round_robin";
+  const agentId = cfg.agent_id ?? "";
+  const [agents, setAgents] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [loading, setLoading] = useState(mode === "specific");
+
+  useEffect(() => {
+    if (mode !== "specific") return;
+    let active = true;
+    setLoading(true);
+    fetch("/api/account/members", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((json) => {
+        if (active) setAgents(json.members ?? []);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [mode]);
+
+  const selectedAgent = agents.find((agent) => agent.id === agentId);
+
+  return (
+    <>
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Assignment mode</label>
+        <Select
+          value={mode}
+          onValueChange={(value) =>
+            onUpdateConfig({
+              mode: value,
+              agent_id: value === "round_robin" ? "" : agentId,
+            })
+          }
+        >
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="round_robin">Round-robin</SelectItem>
+            <SelectItem value="specific">Specific agent</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {mode === "specific" && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Agent</label>
+          {loading ? (
+            <div className="text-sm text-muted-foreground">Loading...</div>
+          ) : (
+            <select
+              className="w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none disabled:opacity-50"
+              value={agentId}
+              onChange={(event) => onUpdateConfig({ agent_id: event.target.value })}
+            >
+              <option value="">Select an agent…</option>
+              {agents.map((agent) => (
+                <option key={agent.id} value={agent.id}>{agent.name || agent.email}</option>
+              ))}
+              {agentId && !selectedAgent && (
+                <option value={agentId}>{agentId} (unknown)</option>
+              )}
+            </select>
+          )}
+        </div>
+      )}
+      <NextNodeRow
+        value={cfg.next_node_key ?? ""}
+        allNodes={allNodes}
+        currentKey={currentKey}
+        onChange={(value) => onUpdateConfig({ next_node_key: value })}
+        label="Advances to"
+      />
+    </>
+  );
+}
+
+interface CreateDealCfg {
+  title?: string;
+  value?: number;
+  pipeline_id?: string;
+  stage_id?: string;
+  next_node_key?: string;
+}
+
+function CreateDealForm({
+  cfg,
+  allNodes,
+  currentKey,
+  onUpdateConfig,
+}: {
+  cfg: CreateDealCfg;
+  allNodes: BuilderNode[];
+  currentKey: string;
+  onUpdateConfig: (patch: Record<string, unknown>) => void;
+}) {
+  const title = cfg.title ?? "Nuevo Lead";
+  const value = cfg.value ?? 0;
+  const pipelineId = cfg.pipeline_id ?? "";
+  const stageId = cfg.stage_id ?? "";
+  const [pipelines, setPipelines] = useState<{ id: string; name: string }[]>([]);
+  const [stages, setStages] = useState<{ id: string; name: string; pipeline_id: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    const supabase = createClient();
+    Promise.all([
+      supabase.from("pipelines").select("id, name").order("name"),
+      supabase.from("pipeline_stages").select("id, name, pipeline_id").order("position"),
+    ]).then(([pipelinesRes, stagesRes]) => {
+      if (!active) return;
+      setPipelines((pipelinesRes.data as { id: string; name: string }[] | null) ?? []);
+      setStages((stagesRes.data as { id: string; name: string; pipeline_id: string }[] | null) ?? []);
+      setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (loading) return <div className="text-sm text-muted-foreground">Loading...</div>;
+
+  const stageOptions = stages.filter((stage) => stage.pipeline_id === pipelineId);
+  const selectedPipeline = pipelines.find((pipeline) => pipeline.id === pipelineId);
+  const selectedStage = stageOptions.find((stage) => stage.id === stageId);
+  const selectClass = "w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none disabled:opacity-50";
+
+  const handlePipelineChange = (nextPipelineId: string) => {
+    const firstStage = stages.find((stage) => stage.pipeline_id === nextPipelineId);
+    onUpdateConfig({ pipeline_id: nextPipelineId, stage_id: firstStage?.id ?? "" });
+  };
+
+  return (
+    <>
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Deal title</label>
+        <Input value={title} onChange={(event) => onUpdateConfig({ title: event.target.value })} />
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Value</label>
+        <Input type="number" value={value} onChange={(event) => onUpdateConfig({ value: Number(event.target.value) })} />
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Pipeline</label>
+        <select className={selectClass} value={pipelineId} onChange={(event) => handlePipelineChange(event.target.value)}>
+          <option value="">Select a pipeline…</option>
+          {pipelines.map((pipeline) => <option key={pipeline.id} value={pipeline.id}>{pipeline.name}</option>)}
+          {pipelineId && !selectedPipeline && <option value={pipelineId}>{pipelineId} (unknown)</option>}
+        </select>
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Stage</label>
+        <select
+          className={selectClass}
+          value={stageId}
+          onChange={(event) => onUpdateConfig({ stage_id: event.target.value })}
+          disabled={!pipelineId || stageOptions.length === 0}
+        >
+          <option value="">{pipelineId ? "Select a stage…" : "Select a pipeline first…"}</option>
+          {stageOptions.map((stage) => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
+          {stageId && pipelineId && !selectedStage && <option value={stageId}>{stageId} (unknown)</option>}
+        </select>
+      </div>
+      <NextNodeRow
+        value={cfg.next_node_key ?? ""}
+        allNodes={allNodes}
+        currentKey={currentKey}
+        onChange={(next) => onUpdateConfig({ next_node_key: next })}
+        label="Advances to"
+      />
+    </>
+  );
 }
 
 // ============================================================
