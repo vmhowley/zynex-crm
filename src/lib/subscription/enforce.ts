@@ -22,7 +22,7 @@ export interface EnforcementResult {
 export async function checkLimit(
   accountId: string,
   limitType: LimitType,
-  increment: number = 0
+  increment: number = 0,
 ): Promise<EnforcementResult> {
   const supabase = await createClient();
 
@@ -65,9 +65,10 @@ export async function checkLimit(
     }
     case "whatsapp_numbers": {
       const { count } = await supabase
-        .from("whatsapp_config")
+        .from("channel_configs")
         .select("*", { count: "exact", head: true })
-        .eq("account_id", accountId);
+        .eq("account_id", accountId)
+        .eq("channel", "whatsapp");
       currentCount = count || 0;
       break;
     }
@@ -89,7 +90,7 @@ export async function checkLimit(
 
 export async function checkFeature(
   accountId: string,
-  feature: FeatureType
+  feature: FeatureType,
 ): Promise<EnforcementResult> {
   const supabase = await createClient();
 
@@ -125,7 +126,7 @@ export async function checkFeature(
 }
 
 export async function checkSubscriptionAccess(
-  accountId: string
+  accountId: string,
 ): Promise<{ allowed: boolean; status?: string; trial_ends_at?: string }> {
   const supabase = await createClient();
 
@@ -139,8 +140,11 @@ export async function checkSubscriptionAccess(
     return { allowed: false };
   }
 
-  if (subscription.status === "suspended") {
-    return { allowed: false, status: "suspended" };
+  if (
+    subscription.status === "suspended" ||
+    subscription.status === "cancelled"
+  ) {
+    return { allowed: false, status: subscription.status };
   }
 
   if (subscription.status === "trial" && subscription.trial_ends_at) {
@@ -166,12 +170,11 @@ export async function checkSubscriptionAccess(
 export async function getUsage(accountId: string): Promise<UsageData> {
   const supabase = await createClient();
 
-  // Try to get from account_usage table first
   const currentPeriod = new Date();
   const periodStart = new Date(
     currentPeriod.getFullYear(),
     currentPeriod.getMonth(),
-    1
+    1,
   ).toISOString();
 
   const { data: usageRecords } = await supabase
@@ -187,7 +190,6 @@ export async function getUsage(accountId: string): Promise<UsageData> {
     });
   }
 
-  // If no records in account_usage, compute from actual tables
   if (usageMap.size === 0 || !usageMap.has("contacts")) {
     const { count: contactsCount } = await supabase
       .from("contacts")
@@ -220,12 +222,8 @@ export async function getUsage(accountId: string): Promise<UsageData> {
   };
 }
 
-/**
- * Combined check: verifies subscription AND gets real usage data.
- * Use this for UI displays where you need both limits AND current usage.
- */
 export async function checkUsage(
-  accountId: string
+  accountId: string,
 ): Promise<{
   allowed: boolean;
   error?: string;
@@ -274,14 +272,9 @@ export async function checkUsage(
   };
 }
 
-/**
- * Simple limit check that returns only whether the action is allowed
- * and the current count for display purposes.
- */
 export async function checkLimitWithUsage(
   accountId: string,
-  limitType: LimitType
+  limitType: LimitType,
 ): Promise<EnforcementResult> {
-  const checkResult = await checkLimit(accountId, limitType);
-  return checkResult;
+  return checkLimit(accountId, limitType);
 }
