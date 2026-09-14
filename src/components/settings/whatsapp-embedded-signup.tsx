@@ -51,6 +51,14 @@ export function WhatsAppEmbeddedSignup({
   const codeRef = useRef<string | null>(null)
   const signupInfoRef = useRef<SignupInfo | null>(null)
   const completingRef = useRef(false)
+  const handshakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function clearHandshakeTimeout() {
+    if (handshakeTimeoutRef.current) {
+      clearTimeout(handshakeTimeoutRef.current)
+      handshakeTimeoutRef.current = null
+    }
+  }
 
   useEffect(() => {
     let active = true
@@ -107,11 +115,16 @@ export function WhatsAppEmbeddedSignup({
     return () => script.removeEventListener('load', initialize)
   }, [bootstrap])
 
+  useEffect(() => {
+    return () => clearHandshakeTimeout()
+  }, [])
+
   async function completeSignup() {
     const code = codeRef.current
     const info = signupInfoRef.current
     if (!code || !info?.waba_id || completingRef.current) return
 
+    clearHandshakeTimeout()
     completingRef.current = true
     try {
       const response = await fetch('/api/oauth/meta/whatsapp/complete', {
@@ -145,6 +158,7 @@ export function WhatsAppEmbeddedSignup({
         duration: 10000,
       })
     } finally {
+      clearHandshakeTimeout()
       completingRef.current = false
       setConnecting(false)
     }
@@ -181,8 +195,10 @@ export function WhatsAppEmbeddedSignup({
         }
         void completeSignup()
       } else if (message.event === 'CANCEL') {
+        clearHandshakeTimeout()
         setConnecting(false)
       } else if (message.event === 'ERROR') {
+        clearHandshakeTimeout()
         setConnecting(false)
         toast.error('Meta no pudo completar la conexión de WhatsApp')
       }
@@ -202,18 +218,35 @@ export function WhatsAppEmbeddedSignup({
       return
     }
 
+    clearHandshakeTimeout()
     codeRef.current = null
     signupInfoRef.current = null
     setConnecting(true)
+    handshakeTimeoutRef.current = setTimeout(() => {
+      if (!completingRef.current) {
+        codeRef.current = null
+        signupInfoRef.current = null
+        setConnecting(false)
+        toast.error(
+          'Meta no completó el registro. Reintenta sin bloqueadores de contenido y completa todo el flujo de WhatsApp.',
+          { duration: 10000 },
+        )
+      }
+      handshakeTimeoutRef.current = null
+    }, 90000)
 
     window.FB.login(
       (response) => {
         const code = response.authResponse?.code
         if (!code) {
+          clearHandshakeTimeout()
           setConnecting(false)
-          if (response.status !== 'connected') {
-            toast.error('La conexión con Meta fue cancelada o no se completó')
-          }
+          toast.error(
+            response.status === 'connected'
+              ? 'Meta inició sesión, pero no devolvió el código de autorización requerido. Intenta nuevamente.'
+              : 'La conexión con Meta fue cancelada o no se completó',
+            { duration: 10000 },
+          )
           return
         }
         codeRef.current = code
