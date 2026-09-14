@@ -283,10 +283,21 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
 
       const value = change.value
 
-      // Handle status updates
+      // Resolve the exact connection for status/message events before
+      // touching persisted rows. This keeps identical Meta message IDs on
+      // different connected numbers isolated from each other.
+      const resolvedForEvent =
+        value.statuses || value.messages
+          ? await resolveChannelConfigFromWebhook(
+              supabaseAdmin(),
+              value as import('@/lib/channels/router').WebhookValue
+            )
+          : null
+
+      // Handle status updates, scoped to the connection that emitted them.
       if (value.statuses) {
         for (const status of value.statuses) {
-          await handleStatusUpdate(status)
+          await handleStatusUpdate(status, resolvedForEvent?.config.id ?? null)
         }
       }
 
@@ -298,10 +309,12 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
       //   ig_business_account_id → Instagram
       //   page_id → Instagram, then Messenger
       //   phone_number_id → WhatsApp
-      const resolved = await resolveChannelConfigFromWebhook(
-        supabaseAdmin(),
-        value as import('@/lib/channels/router').WebhookValue
-      )
+      const resolved =
+        resolvedForEvent ??
+        (await resolveChannelConfigFromWebhook(
+          supabaseAdmin(),
+          value as import('@/lib/channels/router').WebhookValue
+        ))
 
       if (!resolved) {
         console.error(
@@ -332,7 +345,8 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
           // the admin who saved the channel config.
           config.user_id,
           accessToken,
-          channel
+          channel,
+          config.id
         )
       }
     }
@@ -381,21 +395,28 @@ function isValidStatusTransition(current: string, incoming: string): boolean {
   return ii > ci
 }
 
-async function handleStatusUpdate(status: {
-  id: string
-  status: string
-  timestamp: string
-  recipient_id: string
-}) {
+async function handleStatusUpdate(
+  status: {
+    id: string
+    status: string
+    timestamp: string
+    recipient_id: string
+  },
+  channelConfigId: string | null
+) {
   // 1) Mirror onto messages (legacy behavior) — Meta's status values
   //    already match the CHECK constraint on messages.status. No
   //    `.select()`: message_id is NOT unique (migration 009 — Meta ids
   //    repeat across numbers), so this updates 0..N rows and must not
   //    assume a single row.
-  const { error: msgErr } = await supabaseAdmin()
+  let statusUpdateQuery = supabaseAdmin()
     .from('messages')
     .update({ status: status.status })
     .eq('message_id', status.id)
+  if (channelConfigId) {
+    statusUpdateQuery = statusUpdateQuery.eq('channel_config_id', channelConfigId)
+  }
+  const { error: msgErr } = await statusUpdateQuery
 
   if (msgErr) {
     console.error('Error updating message status:', msgErr)
@@ -444,12 +465,14 @@ async function handleStatusUpdate(status: {
   //    Runs last so a slow subscriber can't delay the mirrors above.
   //    Bounded to one row (message_id isn't unique) purely to resolve
   //    the owning account for delivery.
-  const { data: msgRow } = await supabaseAdmin()
+  let statusMessageQuery = supabaseAdmin()
     .from('messages')
-    .select('conversation_id, conversations(account_id)')
+    .select('conversation_id, channel_config_id, conversations(account_id)')
     .eq('message_id', status.id)
-    .limit(1)
-    .maybeSingle()
+  if (channelConfigId) {
+    statusMessageQuery = statusMessageQuery.eq('channel_config_id', channelConfigId)
+  }
+  const { data: msgRow } = await statusMessageQuery.limit(1).maybeSingle()
 
   if (msgRow) {
     const conv = msgRow.conversations as { account_id: string } | null
@@ -463,6 +486,7 @@ async function handleStatusUpdate(status: {
           whatsapp_message_id: status.id,
           conversation_id: msgRow.conversation_id,
           status: status.status,
+          channel_config_id: msgRow.channel_config_id ?? channelConfigId,
         }
       )
     }
@@ -602,7 +626,9 @@ async function processMessage(
   configOwnerUserId: string,
   accessToken: string,
   // Channel type: whatsapp, instagram, or messenger
-  channel: string = 'whatsapp'
+  channel: string = 'whatsapp',
+  // Exact tenant connection that received the event.
+  channelConfigId: string
 ) {
   // Channel-specific sender identification:
   //   - whatsapp:   message.from is a phone number → normalize to digits
@@ -630,7 +656,8 @@ async function processMessage(
     accountId,
     configOwnerUserId,
     contactRecord.id,
-    channel
+    channel,
+    channelConfigId
   )
   if (!convResult) return
   const conversation = convResult.conversation
@@ -643,6 +670,7 @@ async function processMessage(
     await dispatchWebhookEvent(supabaseAdmin(), accountId, 'conversation.created', {
       conversation_id: conversation.id,
       contact_id: contactRecord.id,
+      channel_config_id: channelConfigId,
     })
   }
 
@@ -725,6 +753,8 @@ async function processMessage(
     interactive_reply_id: interactiveReplyId,
     // Channel type - added in migration 032
     channel: channel,
+    // Exact connection - added in migration 043
+    channel_config_id: channelConfigId,
   })
 
   if (msgError) {
@@ -1115,22 +1145,22 @@ async function findOrCreateConversation(
   configOwnerUserId: string,
   contactId: string,
   channel: string = 'whatsapp',
+  channelConfigId: string
 ) {
-  // Look for existing conversation in this account, scoped by channel
+  // A contact may talk to several numbers/pages owned by the same tenant.
+  // The exact connection is therefore part of conversation identity.
   const { data: existing, error: findError } = await supabaseAdmin()
     .from('conversations')
     .select('*')
     .eq('account_id', accountId)
     .eq('contact_id', contactId)
-    .eq('channel', channel)
-    .single()
+    .eq('channel_config_id', channelConfigId)
+    .maybeSingle()
 
   if (!findError && existing) {
     return { conversation: existing, created: false }
   }
 
-  // Create new conversation. Same tenancy + audit split as
-  // findOrCreateContact above.
   const { data: newConv, error: createError } = await supabaseAdmin()
     .from('conversations')
     .insert({
@@ -1138,11 +1168,24 @@ async function findOrCreateConversation(
       user_id: configOwnerUserId,
       contact_id: contactId,
       channel: channel,
+      channel_config_id: channelConfigId,
     })
     .select()
     .single()
 
   if (createError) {
+    // Concurrent deliveries may race the first insert. Re-resolve the
+    // canonical connection-scoped conversation on a unique violation.
+    if (isUniqueViolation(createError)) {
+      const { data: raced } = await supabaseAdmin()
+        .from('conversations')
+        .select('*')
+        .eq('account_id', accountId)
+        .eq('contact_id', contactId)
+        .eq('channel_config_id', channelConfigId)
+        .maybeSingle()
+      if (raced) return { conversation: raced, created: false }
+    }
     console.error('Error creating conversation:', createError)
     return null
   }
