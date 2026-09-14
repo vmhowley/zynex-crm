@@ -626,7 +626,7 @@ async function processMessage(
   configOwnerUserId: string,
   accessToken: string,
   // Channel type: whatsapp, instagram, or messenger
-  channel: string = 'whatsapp',
+  channel: string,
   // Exact tenant connection that received the event.
   channelConfigId: string
 ) {
@@ -1144,7 +1144,7 @@ async function findOrCreateConversation(
   accountId: string,
   configOwnerUserId: string,
   contactId: string,
-  channel: string = 'whatsapp',
+  channel: string,
   channelConfigId: string
 ) {
   // A contact may talk to several numbers/pages owned by the same tenant.
