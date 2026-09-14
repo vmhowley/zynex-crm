@@ -15,6 +15,12 @@ interface SubscriptionPlan {
   api_access: boolean;
 }
 
+type SubscriptionFeatureKey =
+  | "broadcasts_enabled"
+  | "automations_enabled"
+  | "flows_enabled"
+  | "api_access";
+
 function normalizePlan(value: unknown): SubscriptionPlan | null {
   if (Array.isArray(value)) return (value[0] as SubscriptionPlan | undefined) ?? null;
   return (value as SubscriptionPlan | null) ?? null;
@@ -125,7 +131,7 @@ export async function checkFeature(
 
   const plan = normalizePlan(subscription.plans);
   if (!plan) return { allowed: false, error: "Subscription plan not found" };
-  const featureMap: Record<FeatureType, string> = {
+  const featureMap: Record<FeatureType, SubscriptionFeatureKey> = {
     broadcasts: "broadcasts_enabled",
     automations: "automations_enabled",
     flows: "flows_enabled",
