@@ -1,0 +1,28 @@
+name: Temporary disable AI auto-reply
+
+on:
+  push:
+    branches:
+      - fix/saas-hardening
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/saas-hardening
+          fetch-depth: 0
+      - run: python .github/scripts/disable_ai_autoreply.py
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/scripts/disable_ai_autoreply.py
+          rm .github/workflows/_temporary_disable_ai_autoreply.yml
+          git add src/app/api/whatsapp/webhook/route.ts .github/scripts/disable_ai_autoreply.py .github/workflows/_temporary_disable_ai_autoreply.yml
+          git commit -m "refactor(ai): disable inbound auto-replies"
+          git push origin HEAD:fix/saas-hardening
