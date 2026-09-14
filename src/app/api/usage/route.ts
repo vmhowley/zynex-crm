@@ -8,6 +8,10 @@ interface UsagePlanRow {
   max_contacts: number | null;
   max_team_members: number | null;
   max_whatsapp_numbers: number | null;
+  broadcasts_enabled: boolean;
+  automations_enabled: boolean;
+  flows_enabled: boolean;
+  api_access: boolean;
 }
 
 export async function GET() {
