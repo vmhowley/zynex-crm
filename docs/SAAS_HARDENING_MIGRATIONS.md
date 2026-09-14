@@ -16,7 +16,10 @@ Apply these migrations in numeric order to the Supabase project used by the prev
 4. `046_meta_oauth_pending_sessions.sql`
    - stores short-lived Instagram/Messenger OAuth picker state server-side so credentials never travel in URLs.
 5. `047_pro_trial_signup.sql`
-   - makes new 14-day trials use the Pro plan instead of Free.
+   - makes new 14-day trials use the Pro plan instead of Free;
+   - preserves the existing trial-expiry/suspension policy until the commercial downgrade policy is explicitly chosen.
+6. `048_whatsapp_legacy_view_registration.sql`
+   - restores WhatsApp registration/diagnostic fields on the primary-only legacy view used by advanced settings.
 
 Do not merge the PR solely because these migrations apply successfully. The integrated Vercel preview must still pass the regression checklist before merge.
 
