@@ -61,10 +61,6 @@ async function exchangeEmbeddedSignupCode(code: string): Promise<string> {
     code,
   })
 
-  // Embedded Signup is launched through the Facebook JavaScript SDK. The
-  // authorization code must be exchanged using the same implicit redirect
-  // context created by the SDK. Supplying a static redirect_uri here breaks
-  // Vercel preview deployments because each preview can have a different host.
   const response = await fetch(`${GRAPH_BASE}/oauth/access_token?${params}`, {
     method: 'GET',
     cache: 'no-store',
@@ -178,6 +174,8 @@ async function resolveWabaAndPhone({
 }
 
 export async function POST(request: Request) {
+  let stage = 'authenticate'
+
   try {
     const supabase = await createClient()
     const {
@@ -186,9 +184,10 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized', stage }, { status: 401 })
     }
 
+    stage = 'load_account'
     const { data: profile } = await supabase
       .from('profiles')
       .select('account_id, account_role')
@@ -196,15 +195,16 @@ export async function POST(request: Request) {
       .maybeSingle()
 
     if (!profile?.account_id) {
-      return NextResponse.json({ error: 'Account not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Account not found', stage }, { status: 404 })
     }
     if (!['owner', 'admin'].includes(profile.account_role || '')) {
       return NextResponse.json(
-        { error: 'Only account admins can connect WhatsApp' },
+        { error: 'Only account admins can connect WhatsApp', stage },
         { status: 403 },
       )
     }
 
+    stage = 'validate_request'
     const body = await request.json()
     const code = typeof body.code === 'string' ? body.code.trim() : ''
     const hintedWabaId = typeof body.waba_id === 'string' ? body.waba_id.trim() : ''
@@ -216,18 +216,21 @@ export async function POST(request: Request) {
 
     if (!code) {
       return NextResponse.json(
-        { error: 'Embedded Signup did not return the authorization code' },
+        { error: 'Embedded Signup did not return the authorization code', stage },
         { status: 400 },
       )
     }
     if (!/^\d{6}$/.test(pin)) {
       return NextResponse.json(
-        { error: 'Create a 6-digit PIN to protect this WhatsApp number' },
+        { error: 'Create a 6-digit PIN to protect this WhatsApp number', stage },
         { status: 400 },
       )
     }
 
+    stage = 'exchange_code'
     const accessToken = await exchangeEmbeddedSignupCode(code)
+
+    stage = 'resolve_waba_and_phone'
     const selected = await resolveWabaAndPhone({
       accessToken,
       hintedWabaId: hintedWabaId || undefined,
@@ -236,6 +239,7 @@ export async function POST(request: Request) {
     const wabaId = selected.wabaId
     const phoneNumberId = selected.phone.id
 
+    stage = 'check_existing_connection'
     const admin = supabaseAdmin()
     const { data: claimed, error: claimedError } = await admin
       .from('channel_configs')
@@ -246,31 +250,39 @@ export async function POST(request: Request) {
 
     if (claimedError) {
       console.error('[embedded-signup] ownership lookup failed:', claimedError)
-      return NextResponse.json({ error: 'Could not validate the WhatsApp number' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Could not validate the WhatsApp number', stage },
+        { status: 500 },
+      )
     }
     if (claimed && claimed.account_id !== profile.account_id) {
       return NextResponse.json(
-        { error: 'This WhatsApp number is already connected to another Zynex CRM account' },
+        { error: 'This WhatsApp number is already connected to another Zynex CRM account', stage },
         { status: 409 },
       )
     }
 
     if (!claimed) {
+      stage = 'check_plan_limit'
       const limit = await checkLimit(profile.account_id, 'whatsapp_numbers', 1)
       if (!limit.allowed) {
         return NextResponse.json(
-          { error: limit.error || 'Your plan does not allow another WhatsApp number' },
+          { error: limit.error || 'Your plan does not allow another WhatsApp number', stage },
           { status: 403 },
         )
       }
     }
 
+    stage = 'verify_phone'
     const phoneInfo = await verifyPhoneNumber({
       phoneNumberId,
       accessToken,
     })
 
+    stage = 'subscribe_waba'
     await subscribeWabaToApp({ wabaId, accessToken })
+
+    stage = 'register_phone'
     await registerPhoneNumber({
       channelId: phoneNumberId,
       messagingProduct: 'whatsapp',
@@ -278,6 +290,7 @@ export async function POST(request: Request) {
       pin,
     })
 
+    stage = 'resolve_primary_connection'
     let isPrimary = Boolean(claimed?.is_primary)
     if (!claimed) {
       const { data: primary } = await admin
@@ -290,6 +303,7 @@ export async function POST(request: Request) {
       isPrimary = !primary
     }
 
+    stage = 'save_connection'
     const now = new Date().toISOString()
     const row = {
       account_id: profile.account_id,
@@ -325,11 +339,12 @@ export async function POST(request: Request) {
     if (saveError) {
       console.error('[embedded-signup] save failed:', saveError)
       return NextResponse.json(
-        { error: 'WhatsApp was connected at Meta but could not be saved in Zynex CRM' },
+        { error: 'WhatsApp was connected at Meta but could not be saved in Zynex CRM', stage },
         { status: 500 },
       )
     }
 
+    stage = 'done'
     return NextResponse.json({
       success: true,
       connection: {
@@ -343,7 +358,7 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown Embedded Signup error'
-    console.error('[embedded-signup] completion failed:', message)
-    return NextResponse.json({ error: message }, { status: 500 })
+    console.error('[embedded-signup] completion failed:', { stage, message })
+    return NextResponse.json({ error: message, stage }, { status: 500 })
   }
 }
