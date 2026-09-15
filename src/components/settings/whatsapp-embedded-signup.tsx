@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2, MessageCircleMore } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -31,9 +31,33 @@ type MetaSdk = {
   ) => void
 }
 
+type EmbeddedSignupMessage = {
+  type?: string
+  event?: string
+  data?: {
+    waba_id?: string
+    phone_number_id?: string
+    business_id?: string
+    error_message?: string
+    current_step?: string
+  }
+}
+
 declare global {
   interface Window {
     FB?: MetaSdk
+  }
+}
+
+function isFacebookOrigin(origin: string) {
+  try {
+    const { protocol, hostname } = new URL(origin)
+    return (
+      protocol === 'https:' &&
+      (hostname === 'facebook.com' || hostname.endsWith('.facebook.com'))
+    )
+  } catch {
+    return false
   }
 }
 
@@ -50,20 +74,22 @@ export function WhatsAppEmbeddedSignup({
   const [connecting, setConnecting] = useState(false)
   const [connectionStage, setConnectionStage] = useState<string | null>(null)
   const [loadingConfig, setLoadingConfig] = useState(true)
+
   const codeRef = useRef<string | null>(null)
   const signupInfoRef = useRef<SignupInfo | null>(null)
   const completingRef = useRef(false)
   const handshakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  function clearHandshakeTimeout() {
+  const clearHandshakeTimeout = useCallback(() => {
     if (handshakeTimeoutRef.current) {
       clearTimeout(handshakeTimeoutRef.current)
       handshakeTimeoutRef.current = null
     }
-  }
+  }, [])
 
   useEffect(() => {
     let active = true
+
     fetch('/api/oauth/meta/whatsapp/bootstrap', { cache: 'no-store' })
       .then(async (response) => {
         const body = await response.json()
@@ -76,6 +102,7 @@ export function WhatsAppEmbeddedSignup({
       .finally(() => {
         if (active) setLoadingConfig(false)
       })
+
     return () => {
       active = false
     }
@@ -91,6 +118,7 @@ export function WhatsAppEmbeddedSignup({
 
     const initialize = () => {
       if (!active || initialized || !window.FB) return false
+
       try {
         window.FB.init({
           appId: bootstrap.app_id,
@@ -107,7 +135,9 @@ export function WhatsAppEmbeddedSignup({
       } catch (error) {
         console.error('[embedded-signup] Meta SDK init failed:', error)
         setSdkReady(false)
-        setSdkError('Meta cargó, pero el SDK no pudo inicializarse. Recarga la página e inténtalo de nuevo.')
+        setSdkError(
+          'Meta cargó, pero el SDK no pudo inicializarse. Recarga la página e inténtalo de nuevo.',
+        )
         return false
       }
     }
@@ -125,6 +155,7 @@ export function WhatsAppEmbeddedSignup({
 
     if (!initialize()) {
       const existing = document.getElementById('facebook-jssdk') as HTMLScriptElement | null
+
       if (existing) {
         existing.addEventListener('load', initialize)
         existing.addEventListener('error', onScriptError)
@@ -140,10 +171,7 @@ export function WhatsAppEmbeddedSignup({
         document.body.appendChild(script)
       }
 
-      pollTimer = setInterval(() => {
-        initialize()
-      }, 250)
-
+      pollTimer = setInterval(initialize, 250)
       failTimer = setTimeout(() => {
         if (!active || initialized) return
         if (pollTimer) clearInterval(pollTimer)
@@ -166,9 +194,9 @@ export function WhatsAppEmbeddedSignup({
 
   useEffect(() => {
     return () => clearHandshakeTimeout()
-  }, [])
+  }, [clearHandshakeTimeout])
 
-  async function completeSignup() {
+  const completeSignup = useCallback(async () => {
     const code = codeRef.current
     const info = signupInfoRef.current
     if (!code || !info?.waba_id || completingRef.current) return
@@ -176,6 +204,7 @@ export function WhatsAppEmbeddedSignup({
     clearHandshakeTimeout()
     completingRef.current = true
     setConnectionStage('Finalizando la conexión con Meta…')
+
     const controller = new AbortController()
     const backendTimeout = setTimeout(() => controller.abort(), 30000)
 
@@ -200,6 +229,7 @@ export function WhatsAppEmbeddedSignup({
           ? `WhatsApp ${body.connection.display_phone_number} conectado`
           : 'WhatsApp conectado correctamente',
       )
+
       codeRef.current = null
       signupInfoRef.current = null
       setDisplayName('')
@@ -224,14 +254,11 @@ export function WhatsAppEmbeddedSignup({
       completingRef.current = false
       setConnecting(false)
     }
-  }
+  }, [clearHandshakeTimeout, displayName, onConnected, pin])
 
   useEffect(() => {
     const listener = (event: MessageEvent) => {
-      if (!event.origin?.endsWith('facebook.com')) return
-
-      // Temporary diagnostic while validating Meta Embedded Signup V4.
-      console.info('[embedded-signup] facebook message:', event.origin, event.data)
+      if (!isFacebookOrigin(event.origin)) return
 
       let payload: unknown = event.data
       if (typeof payload === 'string') {
@@ -241,18 +268,20 @@ export function WhatsAppEmbeddedSignup({
           return
         }
       }
+
       if (!payload || typeof payload !== 'object') return
 
-      const message = payload as {
-        type?: string
-        event?: string
-        data?: { waba_id?: string; phone_number_id?: string; error_message?: string; current_step?: string }
-      }
+      const message = payload as EmbeddedSignupMessage
       if (message.type !== 'WA_EMBEDDED_SIGNUP') return
 
-      console.info('[embedded-signup] session event:', message)
+      const eventName = String(message.event ?? '').toUpperCase()
+      console.info('[embedded-signup] WhatsApp session event:', {
+        event: eventName,
+        hasWabaId: Boolean(message.data?.waba_id),
+        hasPhoneNumberId: Boolean(message.data?.phone_number_id),
+      })
 
-      if (message.event?.startsWith('FINISH') && message.data?.waba_id) {
+      if (eventName.startsWith('FINISH') && message.data?.waba_id) {
         signupInfoRef.current = {
           waba_id: message.data.waba_id,
           phone_number_id: message.data.phone_number_id,
@@ -263,14 +292,22 @@ export function WhatsAppEmbeddedSignup({
             : 'Cuenta de WhatsApp seleccionada. Esperando autorización…',
         )
         void completeSignup()
-      } else if (message.event === 'CANCEL') {
+        return
+      }
+
+      if (eventName === 'CANCEL') {
         clearHandshakeTimeout()
         setConnecting(false)
         setConnectionStage(null)
-        if (message.data?.current_step) {
-          toast.error(`El registro se canceló en Meta (${message.data.current_step}).`)
-        }
-      } else if (message.event === 'ERROR') {
+        toast.error(
+          message.data?.current_step
+            ? `El registro se canceló en Meta (${message.data.current_step}).`
+            : 'El registro de WhatsApp fue cancelado en Meta.',
+        )
+        return
+      }
+
+      if (eventName === 'ERROR') {
         clearHandshakeTimeout()
         setConnecting(false)
         setConnectionStage(null)
@@ -280,13 +317,14 @@ export function WhatsAppEmbeddedSignup({
 
     window.addEventListener('message', listener)
     return () => window.removeEventListener('message', listener)
-  })
+  }, [clearHandshakeTimeout, completeSignup])
 
   function launchSignup() {
     if (!bootstrap || !window.FB || !sdkReady) {
       toast.error(sdkError || 'La conexión con Meta todavía no está lista')
       return
     }
+
     if (!/^\d{6}$/.test(pin)) {
       toast.error('Crea un PIN de exactamente 6 dígitos')
       return
@@ -297,20 +335,23 @@ export function WhatsAppEmbeddedSignup({
     signupInfoRef.current = null
     setConnecting(true)
     setConnectionStage('Completa el proceso en la ventana de Meta…')
+
     handshakeTimeoutRef.current = setTimeout(() => {
       if (!completingRef.current) {
         const gotCode = Boolean(codeRef.current)
         const gotSession = Boolean(signupInfoRef.current?.waba_id)
+
         codeRef.current = null
         signupInfoRef.current = null
         setConnecting(false)
         setConnectionStage(null)
+
         toast.error(
           gotCode && !gotSession
-            ? 'Meta autorizó el inicio de sesión, pero no devolvió los datos de la cuenta de WhatsApp. Reintenta el registro.'
+            ? 'Meta autorizó el inicio de sesión, pero no devolvió los datos de la cuenta de WhatsApp.'
             : !gotCode && gotSession
-              ? 'Meta devolvió la cuenta de WhatsApp, pero no entregó el código de autorización. Reintenta el registro.'
-              : 'Meta no completó el registro. Reintenta sin bloqueadores de contenido y completa todo el flujo de WhatsApp.',
+              ? 'Meta devolvió la cuenta de WhatsApp, pero no entregó el código de autorización.'
+              : 'Meta no completó el registro de WhatsApp.',
           { duration: 10000 },
         )
       }
@@ -319,20 +360,25 @@ export function WhatsAppEmbeddedSignup({
 
     window.FB.login(
       (response) => {
-        console.info('[embedded-signup] login response:', response)
         const code = response.authResponse?.code
+        console.info('[embedded-signup] login callback:', {
+          status: response.status,
+          hasAuthorizationCode: Boolean(code),
+        })
+
         if (!code) {
           clearHandshakeTimeout()
           setConnecting(false)
           setConnectionStage(null)
           toast.error(
             response.status === 'connected'
-              ? 'Meta inició sesión, pero no devolvió el código de autorización requerido. Intenta nuevamente.'
+              ? 'Meta inició sesión, pero no devolvió el código de autorización requerido.'
               : 'La conexión con Meta fue cancelada o no se completó',
             { duration: 10000 },
           )
           return
         }
+
         codeRef.current = code
         setConnectionStage(
           signupInfoRef.current?.waba_id
@@ -348,7 +394,6 @@ export function WhatsAppEmbeddedSignup({
         override_default_response_type: true,
         extras: {
           setup: {},
-          sessionInfoVersion: 3,
         },
       },
     )
@@ -379,6 +424,7 @@ export function WhatsAppEmbeddedSignup({
           Meta te guiará para seleccionar tu negocio y número de WhatsApp.
         </p>
       </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="grid gap-1.5">
           <Label htmlFor="embedded-wa-name">Nombre de la conexión</Label>
@@ -390,6 +436,7 @@ export function WhatsAppEmbeddedSignup({
             disabled={connecting}
           />
         </div>
+
         <div className="grid gap-1.5">
           <Label htmlFor="embedded-wa-pin">PIN de seguridad (6 dígitos)</Label>
           <Input
@@ -403,6 +450,7 @@ export function WhatsAppEmbeddedSignup({
           />
         </div>
       </div>
+
       {sdkError ? (
         <p className="text-sm text-destructive">{sdkError}</p>
       ) : !sdkReady ? (
@@ -410,9 +458,11 @@ export function WhatsAppEmbeddedSignup({
           <Loader2 className="h-4 w-4 animate-spin" /> Preparando conexión con Meta…
         </p>
       ) : null}
+
       {connecting && connectionStage ? (
         <p className="text-sm text-muted-foreground">{connectionStage}</p>
       ) : null}
+
       <Button
         type="button"
         onClick={launchSignup}
