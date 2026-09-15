@@ -46,6 +46,7 @@ export function WhatsAppEmbeddedSignup({
   const [pin, setPin] = useState('')
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null)
   const [sdkReady, setSdkReady] = useState(false)
+  const [sdkError, setSdkError] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(false)
   const [loadingConfig, setLoadingConfig] = useState(true)
   const codeRef = useRef<string | null>(null)
@@ -82,37 +83,86 @@ export function WhatsAppEmbeddedSignup({
   useEffect(() => {
     if (!bootstrap) return
 
+    let active = true
+    let initialized = false
+    let pollTimer: ReturnType<typeof setInterval> | null = null
+    let failTimer: ReturnType<typeof setTimeout> | null = null
+
     const initialize = () => {
-      if (!window.FB) return
-      window.FB.init({
-        appId: bootstrap.app_id,
-        cookie: true,
-        xfbml: false,
-        version: bootstrap.graph_version,
-      })
-      setSdkReady(true)
+      if (!active || initialized || !window.FB) return false
+      try {
+        window.FB.init({
+          appId: bootstrap.app_id,
+          cookie: true,
+          xfbml: false,
+          version: bootstrap.graph_version,
+        })
+        initialized = true
+        setSdkError(null)
+        setSdkReady(true)
+        if (pollTimer) clearInterval(pollTimer)
+        if (failTimer) clearTimeout(failTimer)
+        return true
+      } catch (error) {
+        console.error('[embedded-signup] Meta SDK init failed:', error)
+        setSdkReady(false)
+        setSdkError('Meta cargó, pero el SDK no pudo inicializarse. Recarga la página e inténtalo de nuevo.')
+        return false
+      }
     }
 
-    if (window.FB) {
-      initialize()
-      return
+    const onScriptError = () => {
+      if (!active) return
+      setSdkReady(false)
+      setSdkError(
+        'No se pudo cargar el SDK de Meta. Desactiva bloqueadores para connect.facebook.net y recarga la página.',
+      )
     }
 
-    const existing = document.getElementById('facebook-jssdk') as HTMLScriptElement | null
-    if (existing) {
-      existing.addEventListener('load', initialize, { once: true })
-      return () => existing.removeEventListener('load', initialize)
+    setSdkReady(false)
+    setSdkError(null)
+
+    if (!initialize()) {
+      const existing = document.getElementById('facebook-jssdk') as HTMLScriptElement | null
+      if (existing) {
+        existing.addEventListener('load', initialize)
+        existing.addEventListener('error', onScriptError)
+      } else {
+        const script = document.createElement('script')
+        script.id = 'facebook-jssdk'
+        script.async = true
+        script.defer = true
+        script.crossOrigin = 'anonymous'
+        script.src = 'https://connect.facebook.net/en_US/sdk.js'
+        script.addEventListener('load', initialize)
+        script.addEventListener('error', onScriptError)
+        document.body.appendChild(script)
+      }
+
+      // The Facebook loader can finish in stages. Poll window.FB as a fallback so
+      // we do not miss readiness when the script element already fired its load event.
+      pollTimer = setInterval(() => {
+        initialize()
+      }, 250)
+
+      failTimer = setTimeout(() => {
+        if (!active || initialized) return
+        if (pollTimer) clearInterval(pollTimer)
+        setSdkReady(false)
+        setSdkError(
+          'Meta no terminó de cargar. Revisa bloqueadores de contenido o protección anti-rastreo y recarga la página.',
+        )
+      }, 10000)
     }
 
-    const script = document.createElement('script')
-    script.id = 'facebook-jssdk'
-    script.async = true
-    script.defer = true
-    script.crossOrigin = 'anonymous'
-    script.src = 'https://connect.facebook.net/en_US/sdk.js'
-    script.addEventListener('load', initialize, { once: true })
-    document.body.appendChild(script)
-    return () => script.removeEventListener('load', initialize)
+    return () => {
+      active = false
+      if (pollTimer) clearInterval(pollTimer)
+      if (failTimer) clearTimeout(failTimer)
+      const script = document.getElementById('facebook-jssdk') as HTMLScriptElement | null
+      script?.removeEventListener('load', initialize)
+      script?.removeEventListener('error', onScriptError)
+    }
   }, [bootstrap])
 
   useEffect(() => {
@@ -210,7 +260,7 @@ export function WhatsAppEmbeddedSignup({
 
   function launchSignup() {
     if (!bootstrap || !window.FB || !sdkReady) {
-      toast.error('La conexión con Meta todavía no está lista')
+      toast.error(sdkError || 'La conexión con Meta todavía no está lista')
       return
     }
     if (!/^\d{6}$/.test(pin)) {
@@ -311,6 +361,13 @@ export function WhatsAppEmbeddedSignup({
           />
         </div>
       </div>
+      {sdkError ? (
+        <p className="text-sm text-destructive">{sdkError}</p>
+      ) : !sdkReady ? (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Preparando conexión con Meta…
+        </p>
+      ) : null}
       <Button
         type="button"
         onClick={launchSignup}
