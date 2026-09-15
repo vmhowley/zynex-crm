@@ -230,6 +230,9 @@ export function WhatsAppEmbeddedSignup({
     const listener = (event: MessageEvent) => {
       if (!event.origin?.endsWith('facebook.com')) return
 
+      // Temporary diagnostic while validating Meta Embedded Signup V4.
+      console.info('[embedded-signup] facebook message:', event.origin, event.data)
+
       let payload: unknown = event.data
       if (typeof payload === 'string') {
         try {
@@ -345,7 +348,7 @@ export function WhatsAppEmbeddedSignup({
         override_default_response_type: true,
         extras: {
           setup: {},
-          sessionInfoVersion: '3',
+          sessionInfoVersion: 3,
         },
       },
     )
