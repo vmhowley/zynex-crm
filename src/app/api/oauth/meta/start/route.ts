@@ -56,11 +56,11 @@ async function requireAdmin(
 ): Promise<boolean> {
   const { data } = await supabase
     .from("profiles")
-    .select("role")
+    .select("account_role")
     .eq("user_id", userId)
     .eq("account_id", accountId)
     .maybeSingle();
-  return data?.role === "owner" || data?.role === "admin";
+  return data?.account_role === "owner" || data?.account_role === "admin";
 }
 
 const META_OAUTH_BASE = "https://www.facebook.com/v21.0/dialog/oauth";
@@ -116,15 +116,18 @@ export async function GET(request: Request) {
 
     // Use SITE_URL if set (Vercel convention), otherwise fall back to NEXT_PUBLIC_SITE_URL
     const siteUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL;
-    
+
     if (!siteUrl) {
       console.error("SITE_URL and NEXT_PUBLIC_SITE_URL are not set");
       return NextResponse.json(
-        { error: "Site URL not configured. Please set NEXT_PUBLIC_SITE_URL environment variable." },
-        { status: 500 }
+        {
+          error:
+            "Site URL not configured. Please set NEXT_PUBLIC_SITE_URL environment variable.",
+        },
+        { status: 500 },
       );
     }
-    
+
     const callbackUrl = `${siteUrl}/api/oauth/meta/callback`;
 
     const nonce = crypto.randomBytes(16).toString("hex");

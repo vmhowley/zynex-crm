@@ -22,6 +22,8 @@ function rowToConfig(data: Record<string, unknown>): ChannelConfig {
     account_id: data.account_id as string,
     user_id: data.user_id as string,
     channel: data.channel as ChannelType,
+    display_name: data.display_name as string | undefined,
+    is_primary: Boolean(data.is_primary),
     channel_id: data.channel_id as string,
     waba_id: data.waba_id as string | undefined,
     ig_business_account_id: data.ig_business_account_id as string | undefined,
@@ -36,24 +38,13 @@ function rowToConfig(data: Record<string, unknown>): ChannelConfig {
 
 /**
  * Resolve channel config from an inbound webhook value.
- *
- * Different Meta channels send different identifiers in their
- * webhook metadata. This function tries each strategy in order
- * so the correct channel_configs row is found even when the
- * same Facebook Page hosts both an Instagram business account
- * and a Messenger bot.
- *
- * Resolution order:
- *   1. ig_business_account_id → Instagram (precise match)
- *   2. page_id → Instagram (when ig_business_account_id isn't stored)
- *   3. page_id → Messenger
- *   4. phone_number_id → WhatsApp
+ * External channel identifiers are globally unique, so this remains
+ * deterministic even when a tenant owns several connections of a type.
  */
 export async function resolveChannelConfigFromWebhook(
   db: SupabaseClient,
   value: WebhookValue,
 ): Promise<{ config: ChannelConfig; channel: ChannelType } | null> {
-  // 1. ig_business_account_id present → Instagram
   if (value.metadata?.ig_business_account_id) {
     const { data, error } = await db
       .from('channel_configs')
@@ -62,14 +53,9 @@ export async function resolveChannelConfigFromWebhook(
       .eq('channel', 'instagram')
       .maybeSingle()
 
-    if (!error && data) {
-      return { config: rowToConfig(data), channel: 'instagram' }
-    }
-    // Fall through to page_id-based resolution — the ig_business_account_id
-    // column may not be populated for older configs.
+    if (!error && data) return { config: rowToConfig(data), channel: 'instagram' }
   }
 
-  // 2. page_id present → try Instagram first, then Messenger
   if (value.metadata?.page_id) {
     const { data: igData, error: igError } = await db
       .from('channel_configs')
@@ -78,9 +64,7 @@ export async function resolveChannelConfigFromWebhook(
       .eq('channel', 'instagram')
       .maybeSingle()
 
-    if (!igError && igData) {
-      return { config: rowToConfig(igData), channel: 'instagram' }
-    }
+    if (!igError && igData) return { config: rowToConfig(igData), channel: 'instagram' }
 
     const { data: messengerData, error: messengerError } = await db
       .from('channel_configs')
@@ -94,7 +78,6 @@ export async function resolveChannelConfigFromWebhook(
     }
   }
 
-  // 3. phone_number_id present → WhatsApp
   if (value.metadata?.phone_number_id) {
     const { data, error } = await db
       .from('channel_configs')
@@ -103,18 +86,12 @@ export async function resolveChannelConfigFromWebhook(
       .eq('channel', 'whatsapp')
       .maybeSingle()
 
-    if (!error && data) {
-      return { config: rowToConfig(data), channel: 'whatsapp' }
-    }
+    if (!error && data) return { config: rowToConfig(data), channel: 'whatsapp' }
   }
 
   return null
 }
 
-/**
- * Get channel configuration by channel ID.
- * This is used by webhooks to find the account configuration.
- */
 export async function getChannelConfigByChannelId(
   db: SupabaseClient,
   channelId: string
@@ -125,16 +102,11 @@ export async function getChannelConfigByChannelId(
     .eq('channel_id', channelId)
     .single()
 
-  if (error || !data) {
-    return null
-  }
-
+  if (error || !data) return null
   return rowToConfig(data)
 }
 
-/**
- * Get channel configuration by account ID and channel type.
- */
+/** Legacy helper: return the primary connection for a channel. */
 export async function getChannelConfigByAccountAndChannel(
   db: SupabaseClient,
   accountId: string,
@@ -145,18 +117,13 @@ export async function getChannelConfigByAccountAndChannel(
     .select('*')
     .eq('account_id', accountId)
     .eq('channel', channel)
-    .single()
+    .eq('is_primary', true)
+    .maybeSingle()
 
-  if (error || !data) {
-    return null
-  }
-
+  if (error || !data) return null
   return rowToConfig(data)
 }
 
-/**
- * Get all channel configurations for an account.
- */
 export async function getChannelConfigsByAccount(
   db: SupabaseClient,
   accountId: string
@@ -166,35 +133,26 @@ export async function getChannelConfigsByAccount(
     .select('*')
     .eq('account_id', accountId)
     .eq('status', 'connected')
+    .order('channel')
+    .order('is_primary', { ascending: false })
+    .order('created_at', { ascending: true })
 
-  if (error || !data) {
-    return []
-  }
-
+  if (error || !data) return []
   return data.map((row) => rowToConfig(row))
 }
 
-/**
- * Validate channel identifier format.
- * Different channels have different ID formats.
- */
 export function isValidChannelId(channel: ChannelType, channelId: string): boolean {
   if (!channelId) return false
-
   switch (channel) {
     case 'whatsapp':
-      // WhatsApp phone number IDs are numeric strings
-      return /^\d+$/.test(channelId)
     case 'instagram':
     case 'messenger':
-      // Page IDs are also numeric strings
       return /^\d+$/.test(channelId)
     default:
       return false
   }
 }
 
-// Re-export types and utilities
 export * from './client'
 export * from './router'
 export type { ChannelType } from '@/types/channel'

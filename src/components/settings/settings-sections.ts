@@ -8,7 +8,6 @@ import {
   Palette,
   PlugZap,
   Shield,
-  Sparkles,
   Tags,
   User,
   UsersRound,
@@ -27,7 +26,6 @@ export const SETTINGS_SECTIONS = [
   'fields',
   'deals',
   'members',
-  'ai',
   'api',
 ] as const;
 
@@ -55,7 +53,6 @@ const labels = {
     fields: "Campos y etiquetas",
     deals: "Negocios y moneda",
     members: "Miembros del equipo",
-    ai: "Asistente de IA",
     api: "Claves API",
   },
   en: {
@@ -70,7 +67,6 @@ const labels = {
     fields: "Fields & tags",
     deals: "Deals & currency",
     members: "Team members",
-    ai: "AI Assistant",
     api: "API keys",
   },
 };
@@ -89,7 +85,6 @@ export function getSectionMeta(locale: 'es' | 'en' = 'es'): Record<SettingsSecti
     fields: { id: 'fields', label: l.fields, icon: Tags, group: 'workspace' },
     deals: { id: 'deals', label: l.deals, icon: Coins, group: 'workspace' },
     members: { id: 'members', label: l.members, icon: UsersRound, group: 'workspace' },
-    ai: { id: 'ai', label: l.ai, icon: Sparkles, group: 'workspace' },
     api: { id: 'api', label: l.api, icon: KeyRound, group: 'workspace' },
   };
 }

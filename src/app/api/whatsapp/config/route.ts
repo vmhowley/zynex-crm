@@ -9,16 +9,6 @@ import {
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption'
 import { checkLimit } from '@/lib/subscription/enforce'
 
-/**
- * Resolve the caller's account_id from their profile. Inlined here
- * (rather than going through `@/lib/auth/account.getCurrentAccount`)
- * because the GET handler wants to return shaped 200s for every
- * non-auth failure mode, not throw — keeping the helper minimal lets
- * the existing response branches stay as-is.
- *
- * Returns null if the user has no profile or no account; callers
- * should treat that the same as "not connected".
- */
 async function resolveAccountId(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
@@ -28,14 +18,11 @@ async function resolveAccountId(
     .select('account_id')
     .eq('user_id', userId)
     .maybeSingle()
+
   if (error || !data?.account_id) return null
   return data.account_id as string
 }
 
-// Lazy-initialised service-role client. We need it to detect a
-// phone_number_id already claimed by a *different* user — under RLS,
-// the user's own session can't see other users' rows, so the conflict
-// would be invisible without the service role.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _adminClient: any = null
 function supabaseAdmin() {
@@ -49,22 +36,15 @@ function supabaseAdmin() {
 }
 
 /**
- * GET /api/whatsapp/config
+ * Legacy WhatsApp settings endpoint.
  *
- * Used by the "Test API Connection" button and by the page to check
- * whether the saved config is healthy. Returns 200 in all non-auth cases
- * so the UI can render an appropriate message rather than show a 500.
- *
- * Response shape:
- *   { connected: true,  phone_info: {...} }
- *   { connected: false, reason: 'no_config',        message: '...' }
- *   { connected: false, reason: 'token_corrupted',  message: '...', needs_reset: true }
- *   { connected: false, reason: 'meta_api_error',   message: '...' }
+ * Multi-connection support lives in channel_configs. This endpoint is kept
+ * intentionally primary-only so the existing Settings screen remains
+ * backwards compatible and can never overwrite a secondary WhatsApp number.
  */
 export async function GET() {
   try {
     const supabase = await createClient()
-
     const {
       data: { user },
       error: authError,
@@ -91,10 +71,11 @@ export async function GET() {
       .select('channel_id, access_token, status')
       .eq('account_id', accountId)
       .eq('channel', 'whatsapp')
+      .eq('is_primary', true)
       .maybeSingle()
 
     if (configError) {
-      console.error('Error fetching channel_configs:', configError)
+      console.error('Error fetching primary channel_configs:', configError)
       return NextResponse.json(
         { connected: false, reason: 'db_error', message: 'Failed to fetch configuration' },
         { status: 200 }
@@ -112,8 +93,6 @@ export async function GET() {
       )
     }
 
-    // Try to decrypt the stored token with the current ENCRYPTION_KEY.
-    // If this fails, the key changed (or was never consistent across envs).
     let accessToken: string
     try {
       accessToken = decrypt(config.access_token)
@@ -125,13 +104,12 @@ export async function GET() {
           reason: 'token_corrupted',
           needs_reset: true,
           message:
-            'The stored access token cannot be decrypted with the current ENCRYPTION_KEY. This usually means the key changed, or it differs between environments (local vs Hostinger vs Vercel). Click "Reset Configuration" below, then re-save.',
+            'The stored access token cannot be decrypted with the current ENCRYPTION_KEY. Click "Reset Configuration" below, then re-save.',
         },
         { status: 200 }
       )
     }
 
-    // Validate credentials against Meta
     try {
       const phoneInfo = await verifyPhoneNumber({
         phoneNumberId: config.channel_id,
@@ -159,16 +137,9 @@ export async function GET() {
   }
 }
 
-/**
- * POST /api/whatsapp/config
- *
- * Saves or updates the WhatsApp config for the authenticated user.
- * Verifies credentials with Meta first, then encrypts and stores.
- */
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
-
     const {
       data: { user },
       error: authError,
@@ -205,16 +176,10 @@ export async function POST(request: Request) {
       }
     }
 
-    // Reject if another account has already claimed this phone_number_id.
-    // wacrm is single-tenant-per-WhatsApp-number — letting two accounts
-    // bind the same number causes the webhook's `.single()` lookup to
-    // throw PGRST116 ("multiple rows"), silently dropping every
-    // inbound message. See issue #136. Post-multi-user we key on
-    // account_id (not user_id) since teammates inside the same account
-    // all share one config; the conflict is between accounts.
     const { data: claimed, error: claimedError } = await supabaseAdmin()
       .from('channel_configs')
       .select('account_id')
+      .eq('channel', 'whatsapp')
       .eq('channel_id', phone_number_id)
       .neq('account_id', accountId)
       .maybeSingle()
@@ -231,13 +196,12 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            'This WhatsApp phone number is already linked to another account on this instance. Each phone number can only be connected to one wacrm user.',
+            'This WhatsApp phone number is already linked to another Zynex CRM account. A phone number can only belong to one account.',
         },
         { status: 409 }
       )
     }
 
-    // Verify credentials with Meta BEFORE saving
     let phoneInfo
     try {
       phoneInfo = await verifyPhoneNumber({
@@ -253,7 +217,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // Encrypt sensitive tokens before storing
     let encryptedAccessToken: string
     let encryptedVerifyToken: string | null
     try {
@@ -271,57 +234,35 @@ export async function POST(request: Request) {
       )
     }
 
-    // Look up any pre-existing row for this account so we know whether
-    // this number is already registered with Meta — if so we can skip
-    // /register when the user didn't provide a PIN this time around.
     const { data: existing } = await supabase
       .from('channel_configs')
       .select('id, registered_at, channel_id')
       .eq('account_id', accountId)
       .eq('channel', 'whatsapp')
+      .eq('is_primary', true)
       .maybeSingle()
 
     const sameNumber =
       existing?.channel_id === phone_number_id &&
       existing?.registered_at != null
 
-    // Check WhatsApp number limit before saving (only for new registrations)
     if (!existing) {
-      const limitCheck = await checkLimit(accountId, 'whatsapp_numbers', 1);
+      const limitCheck = await checkLimit(accountId, 'whatsapp_numbers', 1)
       if (!limitCheck.allowed) {
         return NextResponse.json(
           { error: limitCheck.error || 'WhatsApp number limit exceeded' },
           { status: 403 }
-        );
+        )
       }
     }
 
-    // Step 1: register the phone number for inbound webhooks.
-    //
-    // Attempted on first save AND whenever the user supplies a fresh
-    // PIN (e.g. they rotated the 2FA PIN in Meta Manager). Skipped
-    // when the same number is already registered and no PIN was
-    // supplied — re-registering an already-active number with a
-    // stale PIN would actually fail and undo the active subscription.
     let registeredAt: string | null = existing?.registered_at ?? null
     let registrationError: string | null = null
-    // True when registration was deliberately skipped because no PIN
-    // was supplied (see below). Distinct from registrationError — this
-    // is not a failure, just an incomplete-but-valid save.
     let registrationSkipped = false
 
     const needsRegistration = !sameNumber || (typeof pin === 'string' && pin.length > 0)
     if (needsRegistration) {
       if (!pin) {
-        // No PIN provided. Meta TEST numbers (Developer Console) are
-        // pre-registered by Meta and expose no two-step verification
-        // PIN to set, so requiring one made them impossible to connect
-        // (issue #242). The /register + PIN step only matters for
-        // production numbers under a shared WABA (issue #136), so treat
-        // it as best-effort: skip it, save the (already Meta-verified)
-        // credentials as connected, and leave registered_at null. The
-        // UI surfaces a separate "Not registered" banner with a path to
-        // add a PIN later for users who do need inbound webhook routing.
         registrationSkipped = true
       } else {
         try {
@@ -336,18 +277,10 @@ export async function POST(request: Request) {
           registrationError =
             err instanceof Error ? err.message : 'Unknown Meta API error'
           console.error('Phone number /register failed:', registrationError)
-          // We deliberately fall through and still save the row so the
-          // user can retry without re-entering everything. The UI
-          // surfaces `last_registration_error` so they see WHY it's
-          // not actually live yet.
         }
       }
     }
 
-    // Step 2: subscribe the WABA to this app. Idempotent on Meta's
-    // side, so we call on every save and persist the timestamp.
-    // Skipped only when there's no waba_id (legacy rows from before
-    // we required it).
     let subscribedAppsAt: string | null = null
     if (waba_id) {
       try {
@@ -359,15 +292,9 @@ export async function POST(request: Request) {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)
         console.warn('WABA subscribed_apps failed (non-fatal):', message)
-        // Subscription failures are rare once the App has the right
-        // permissions; we don't block save on them — the diagnostic
-        // endpoint surfaces this state too.
       }
     }
 
-    // Persist everything in one shot. If /register failed we still
-    // store the credentials and the error so the UI can guide the
-    // user through a retry.
     const baseRow: Record<string, unknown> = {
       channel_id: phone_number_id,
       waba_id: waba_id || null,
@@ -386,31 +313,28 @@ export async function POST(request: Request) {
       const { error: updateError } = await supabase
         .from('channel_configs')
         .update(baseRow)
+        .eq('id', existing.id)
         .eq('account_id', accountId)
-        .eq('channel', 'whatsapp')
 
       if (updateError) {
-        console.error('Error updating channel_configs:', updateError)
+        console.error('Error updating primary channel_config:', updateError)
         return NextResponse.json(
           { error: 'Failed to update configuration' },
           { status: 500 }
         )
       }
     } else {
-      // Insert with both columns: `account_id` is the tenancy key
-      // (NOT NULL post-017, UNIQUE so duplicates trip the constraint
-      // up-front), `user_id` is the audit column identifying which
-      // member of the account saved the config.
       const { error: insertError } = await supabase
         .from('channel_configs')
         .insert({
           account_id: accountId,
           user_id: user.id,
+          is_primary: true,
           ...baseRow,
         })
 
       if (insertError) {
-        console.error('Error inserting channel_configs:', insertError)
+        console.error('Error inserting primary channel_config:', insertError)
         return NextResponse.json(
           { error: 'Failed to save configuration' },
           { status: 500 }
@@ -419,9 +343,6 @@ export async function POST(request: Request) {
     }
 
     if (registrationError) {
-      // Save succeeded but the number isn't actually live. Return
-      // 200 with a structured error so the UI can show the specific
-      // remediation step instead of a generic toast.
       return NextResponse.json({
         success: false,
         saved: true,
@@ -435,10 +356,6 @@ export async function POST(request: Request) {
       success: true,
       saved: true,
       registered: registeredAt != null,
-      // Credentials are valid and saved, but inbound webhook
-      // registration was skipped because no PIN was supplied (e.g. a
-      // Meta test number). The UI shows the "Not registered" banner
-      // rather than claiming the number is fully live.
       registration_skipped: registrationSkipped,
       phone_info: phoneInfo,
     })
@@ -448,17 +365,9 @@ export async function POST(request: Request) {
   }
 }
 
-/**
- * DELETE /api/whatsapp/config
- *
- * Removes the authenticated user's WhatsApp configuration row.
- * Used by the "Reset Configuration" button to recover from a corrupted
- * encrypted token (mismatched ENCRYPTION_KEY across environments).
- */
 export async function DELETE() {
   try {
     const supabase = await createClient()
-
     const {
       data: { user },
       error: authError,
@@ -476,18 +385,60 @@ export async function DELETE() {
       )
     }
 
+    const { data: primary, error: primaryError } = await supabase
+      .from('channel_configs')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('channel', 'whatsapp')
+      .eq('is_primary', true)
+      .maybeSingle()
+
+    if (primaryError) {
+      console.error('Error fetching primary WhatsApp config:', primaryError)
+      return NextResponse.json(
+        { error: 'Failed to load configuration' },
+        { status: 500 }
+      )
+    }
+
+    if (!primary) return NextResponse.json({ success: true })
+
     const { error: deleteError } = await supabase
       .from('channel_configs')
       .delete()
+      .eq('id', primary.id)
       .eq('account_id', accountId)
-      .eq('channel', 'whatsapp')
 
     if (deleteError) {
-      console.error('Error deleting channel_configs:', deleteError)
+      console.error('Error deleting primary channel_config:', deleteError)
       return NextResponse.json(
         { error: 'Failed to delete configuration' },
         { status: 500 }
       )
+    }
+
+    // If secondary WhatsApp connections exist, immediately promote one so
+    // legacy callers that expect a primary connection remain deterministic.
+    const { data: replacement } = await supabase
+      .from('channel_configs')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('channel', 'whatsapp')
+      .eq('status', 'connected')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+
+    if (replacement) {
+      const { error: promoteError } = await supabase
+        .from('channel_configs')
+        .update({ is_primary: true })
+        .eq('id', replacement.id)
+        .eq('account_id', accountId)
+
+      if (promoteError) {
+        console.error('Error promoting replacement WhatsApp config:', promoteError)
+      }
     }
 
     return NextResponse.json({ success: true })

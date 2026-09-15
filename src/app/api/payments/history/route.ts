@@ -1,6 +1,33 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+interface PaymentPlanRow {
+  name: string;
+  plan_type: string;
+}
+
+interface PaymentSubscriptionRow {
+  id: string;
+  plan_id: string;
+  plans: PaymentPlanRow | PaymentPlanRow[] | null;
+}
+
+interface PaymentHistoryRow {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  payment_method: string | null;
+  payment_reference: string | null;
+  proof_image_url: string | null;
+  notes: string | null;
+  requested_at: string | null;
+  processed_at: string | null;
+  created_at: string;
+  subscription_id: string | null;
+  subscriptions: PaymentSubscriptionRow | PaymentSubscriptionRow[] | null;
+}
+
 export async function GET() {
   const supabase = await createClient();
 
@@ -60,7 +87,7 @@ export async function GET() {
   }
 
   // Transform data to include plan name
-  const transformedPayments = (payments || []).map((payment: any) => {
+  const transformedPayments = (payments || []).map((payment: PaymentHistoryRow) => {
     // Handle the case where subscriptions might be an array
     const subscription = Array.isArray(payment.subscriptions) 
       ? payment.subscriptions[0] 

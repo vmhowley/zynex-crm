@@ -834,7 +834,7 @@ export function ContactDetailView({
           </div>
         ) : flows.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4">
-            No hay flows manuales activos. Crea un flow con trigger "Manual" en la sección Flows.
+            No hay flows manuales activos. Crea un flow con trigger &quot;Manual&quot; en la sección Flows.
           </p>
         ) : (
           <div className="space-y-2">
