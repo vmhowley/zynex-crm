@@ -19,6 +19,18 @@ type MetaTokenResponse = {
   error?: { message?: string; code?: number }
 }
 
+type MetaDebugTokenResponse = {
+  data?: {
+    app_id?: string
+    is_valid?: boolean
+    granular_scopes?: Array<{
+      scope?: string
+      target_ids?: string[]
+    }>
+  }
+  error?: { message?: string; code?: number }
+}
+
 type MetaPhoneRow = {
   id: string
   display_phone_number?: string
@@ -26,12 +38,22 @@ type MetaPhoneRow = {
   quality_rating?: string
 }
 
-async function exchangeEmbeddedSignupCode(code: string): Promise<string> {
+type WabaPhoneCandidate = {
+  wabaId: string
+  phone: MetaPhoneRow
+}
+
+function getMetaAppCredentials() {
   const appId = process.env.META_APP_ID
   const appSecret = process.env.META_APP_SECRET
   if (!appId || !appSecret) {
     throw new Error('META_APP_ID / META_APP_SECRET are not configured')
   }
+  return { appId, appSecret }
+}
+
+async function exchangeEmbeddedSignupCode(code: string): Promise<string> {
+  const { appId, appSecret } = getMetaAppCredentials()
 
   const params = new URLSearchParams({
     client_id: appId,
@@ -39,9 +61,6 @@ async function exchangeEmbeddedSignupCode(code: string): Promise<string> {
     code,
   })
 
-  // Login for Business v4 normally exchanges the JS-SDK code without a
-  // redirect_uri. Keep an explicit escape hatch for Meta configurations
-  // that were created with a fixed redirect URI.
   const redirectUri = process.env.META_EMBEDDED_SIGNUP_REDIRECT_URI
   if (redirectUri) params.set('redirect_uri', redirectUri)
 
@@ -56,6 +75,36 @@ async function exchangeEmbeddedSignupCode(code: string): Promise<string> {
   }
 
   return body.access_token
+}
+
+async function getEmbeddedSignupWabaIds(accessToken: string): Promise<string[]> {
+  const { appId, appSecret } = getMetaAppCredentials()
+  const params = new URLSearchParams({
+    input_token: accessToken,
+    access_token: `${appId}|${appSecret}`,
+  })
+
+  const response = await fetch(`${GRAPH_BASE}/debug_token?${params}`, {
+    cache: 'no-store',
+  })
+  const body = (await response.json()) as MetaDebugTokenResponse
+
+  if (!response.ok || body.error || !body.data?.is_valid) {
+    throw new Error(body.error?.message || 'Meta returned an invalid Embedded Signup token')
+  }
+  if (body.data.app_id && body.data.app_id !== appId) {
+    throw new Error('Embedded Signup token belongs to a different Meta app')
+  }
+
+  const ids = new Set<string>()
+  for (const granularScope of body.data.granular_scopes || []) {
+    if (granularScope.scope !== 'whatsapp_business_management') continue
+    for (const targetId of granularScope.target_ids || []) {
+      if (targetId) ids.add(targetId)
+    }
+  }
+
+  return [...ids]
 }
 
 async function getWabaPhoneNumbers(
@@ -74,6 +123,59 @@ async function getWabaPhoneNumbers(
     throw new Error(body.error?.message || 'Could not read WhatsApp phone numbers')
   }
   return Array.isArray(body.data) ? body.data : []
+}
+
+async function resolveWabaAndPhone({
+  accessToken,
+  hintedWabaId,
+  hintedPhoneId,
+}: {
+  accessToken: string
+  hintedWabaId?: string
+  hintedPhoneId?: string
+}): Promise<WabaPhoneCandidate> {
+  const tokenWabaIds = await getEmbeddedSignupWabaIds(accessToken)
+  const candidateWabaIds = hintedWabaId
+    ? [hintedWabaId]
+    : tokenWabaIds
+
+  if (hintedWabaId && tokenWabaIds.length > 0 && !tokenWabaIds.includes(hintedWabaId)) {
+    throw new Error('The selected WhatsApp Business Account was not granted to this login')
+  }
+
+  if (candidateWabaIds.length === 0) {
+    throw new Error(
+      'Meta authorized the login but did not grant a WhatsApp Business Account. Complete the WhatsApp Embedded Signup flow and try again.',
+    )
+  }
+
+  const candidates: WabaPhoneCandidate[] = []
+  for (const wabaId of candidateWabaIds) {
+    const phones = await getWabaPhoneNumbers(wabaId, accessToken)
+    for (const phone of phones) {
+      candidates.push({ wabaId, phone })
+    }
+  }
+
+  if (hintedPhoneId) {
+    const selected = candidates.find((candidate) => candidate.phone.id === hintedPhoneId)
+    if (!selected) {
+      throw new Error(
+        'The selected phone number does not belong to the WhatsApp Business Account granted by Meta',
+      )
+    }
+    return selected
+  }
+
+  if (candidates.length === 1) return candidates[0]
+
+  if (candidates.length === 0) {
+    throw new Error('The WhatsApp Business Account granted by Meta has no accessible phone numbers')
+  }
+
+  throw new Error(
+    'Meta granted access to multiple WhatsApp phone numbers and did not identify which one was selected. Please reconnect and select a specific number.',
+  )
 }
 
 export async function POST(request: Request) {
@@ -106,16 +208,16 @@ export async function POST(request: Request) {
 
     const body = await request.json()
     const code = typeof body.code === 'string' ? body.code.trim() : ''
-    const wabaId = typeof body.waba_id === 'string' ? body.waba_id.trim() : ''
+    const hintedWabaId = typeof body.waba_id === 'string' ? body.waba_id.trim() : ''
     const hintedPhoneId =
       typeof body.phone_number_id === 'string' ? body.phone_number_id.trim() : ''
     const pin = typeof body.pin === 'string' ? body.pin.trim() : ''
     const requestedName =
       typeof body.display_name === 'string' ? body.display_name.trim() : ''
 
-    if (!code || !wabaId) {
+    if (!code) {
       return NextResponse.json(
-        { error: 'Embedded Signup did not return the required Meta IDs' },
+        { error: 'Embedded Signup did not return the authorization code' },
         { status: 400 },
       )
     }
@@ -127,28 +229,13 @@ export async function POST(request: Request) {
     }
 
     const accessToken = await exchangeEmbeddedSignupCode(code)
-    const phones = await getWabaPhoneNumbers(wabaId, accessToken)
-
-    let phoneNumberId = hintedPhoneId
-    if (phoneNumberId) {
-      const belongsToWaba = phones.some((phone) => phone.id === phoneNumberId)
-      if (!belongsToWaba) {
-        return NextResponse.json(
-          { error: 'The selected phone number does not belong to the selected WhatsApp Business Account' },
-          { status: 400 },
-        )
-      }
-    } else if (phones.length === 1) {
-      phoneNumberId = phones[0].id
-    } else {
-      return NextResponse.json(
-        {
-          error:
-            'Meta did not identify the selected phone number. Reopen Embedded Signup and select a specific number.',
-        },
-        { status: 400 },
-      )
-    }
+    const selected = await resolveWabaAndPhone({
+      accessToken,
+      hintedWabaId: hintedWabaId || undefined,
+      hintedPhoneId: hintedPhoneId || undefined,
+    })
+    const wabaId = selected.wabaId
+    const phoneNumberId = selected.phone.id
 
     const admin = supabaseAdmin()
     const { data: claimed, error: claimedError } = await admin
@@ -184,9 +271,6 @@ export async function POST(request: Request) {
       accessToken,
     })
 
-    // Both operations are part of making Embedded Signup usable for Cloud
-    // API. Meta requires phone registration within the signup window; WABA
-    // subscription makes webhook delivery deterministic for this app.
     await subscribeWabaToApp({ wabaId, accessToken })
     await registerPhoneNumber({
       channelId: phoneNumberId,
