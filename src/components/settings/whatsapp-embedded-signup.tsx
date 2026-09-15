@@ -199,14 +199,14 @@ export function WhatsAppEmbeddedSignup({
   const completeSignup = useCallback(async () => {
     const code = codeRef.current
     const info = signupInfoRef.current
-    if (!code || !info?.waba_id || completingRef.current) return
+    if (!code || completingRef.current) return
 
     clearHandshakeTimeout()
     completingRef.current = true
-    setConnectionStage('Finalizando la conexión con Meta…')
+    setConnectionStage('Resolviendo la cuenta de WhatsApp con Meta…')
 
     const controller = new AbortController()
-    const backendTimeout = setTimeout(() => controller.abort(), 30000)
+    const backendTimeout = setTimeout(() => controller.abort(), 45000)
 
     try {
       const response = await fetch('/api/oauth/meta/whatsapp/complete', {
@@ -215,8 +215,8 @@ export function WhatsAppEmbeddedSignup({
         signal: controller.signal,
         body: JSON.stringify({
           code,
-          waba_id: info.waba_id,
-          phone_number_id: info.phone_number_id,
+          waba_id: info?.waba_id,
+          phone_number_id: info?.phone_number_id,
           display_name: displayName || undefined,
           pin,
         }),
@@ -242,11 +242,11 @@ export function WhatsAppEmbeddedSignup({
       setConnectionStage(null)
       toast.error(
         error instanceof DOMException && error.name === 'AbortError'
-          ? 'Zynex recibió los datos de Meta, pero el backend tardó demasiado en completar el registro.'
+          ? 'Meta autorizó la conexión, pero el backend tardó demasiado en resolver la cuenta de WhatsApp.'
           : error instanceof Error
             ? error.message
             : 'No se pudo conectar WhatsApp',
-        { duration: 10000 },
+        { duration: 12000 },
       )
     } finally {
       clearTimeout(backendTimeout)
@@ -286,12 +286,10 @@ export function WhatsAppEmbeddedSignup({
           waba_id: message.data.waba_id,
           phone_number_id: message.data.phone_number_id,
         }
-        setConnectionStage(
-          codeRef.current
-            ? 'Meta autorizó la cuenta. Finalizando…'
-            : 'Cuenta de WhatsApp seleccionada. Esperando autorización…',
-        )
-        void completeSignup()
+        if (codeRef.current && !completingRef.current) {
+          setConnectionStage('Meta identificó la cuenta. Finalizando…')
+          void completeSignup()
+        }
         return
       }
 
@@ -337,23 +335,13 @@ export function WhatsAppEmbeddedSignup({
     setConnectionStage('Completa el proceso en la ventana de Meta…')
 
     handshakeTimeoutRef.current = setTimeout(() => {
-      if (!completingRef.current) {
-        const gotCode = Boolean(codeRef.current)
-        const gotSession = Boolean(signupInfoRef.current?.waba_id)
-
-        codeRef.current = null
+      if (!completingRef.current && !codeRef.current) {
         signupInfoRef.current = null
         setConnecting(false)
         setConnectionStage(null)
-
-        toast.error(
-          gotCode && !gotSession
-            ? 'Meta autorizó el inicio de sesión, pero no devolvió los datos de la cuenta de WhatsApp.'
-            : !gotCode && gotSession
-              ? 'Meta devolvió la cuenta de WhatsApp, pero no entregó el código de autorización.'
-              : 'Meta no completó el registro de WhatsApp.',
-          { duration: 10000 },
-        )
+        toast.error('Meta no devolvió el código de autorización para completar WhatsApp.', {
+          duration: 10000,
+        })
       }
       handshakeTimeoutRef.current = null
     }, 90000)
@@ -380,11 +368,7 @@ export function WhatsAppEmbeddedSignup({
         }
 
         codeRef.current = code
-        setConnectionStage(
-          signupInfoRef.current?.waba_id
-            ? 'Meta autorizó la cuenta. Finalizando…'
-            : 'Autorización recibida. Esperando los datos de WhatsApp…',
-        )
+        setConnectionStage('Autorización recibida. Resolviendo WhatsApp…')
         void completeSignup()
       },
       {
