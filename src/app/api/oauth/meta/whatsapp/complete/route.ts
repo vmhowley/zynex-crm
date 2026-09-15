@@ -61,9 +61,10 @@ async function exchangeEmbeddedSignupCode(code: string): Promise<string> {
     code,
   })
 
-  const redirectUri = process.env.META_EMBEDDED_SIGNUP_REDIRECT_URI
-  if (redirectUri) params.set('redirect_uri', redirectUri)
-
+  // Embedded Signup is launched through the Facebook JavaScript SDK. The
+  // authorization code must be exchanged using the same implicit redirect
+  // context created by the SDK. Supplying a static redirect_uri here breaks
+  // Vercel preview deployments because each preview can have a different host.
   const response = await fetch(`${GRAPH_BASE}/oauth/access_token?${params}`, {
     method: 'GET',
     cache: 'no-store',
@@ -135,9 +136,7 @@ async function resolveWabaAndPhone({
   hintedPhoneId?: string
 }): Promise<WabaPhoneCandidate> {
   const tokenWabaIds = await getEmbeddedSignupWabaIds(accessToken)
-  const candidateWabaIds = hintedWabaId
-    ? [hintedWabaId]
-    : tokenWabaIds
+  const candidateWabaIds = hintedWabaId ? [hintedWabaId] : tokenWabaIds
 
   if (hintedWabaId && tokenWabaIds.length > 0 && !tokenWabaIds.includes(hintedWabaId)) {
     throw new Error('The selected WhatsApp Business Account was not granted to this login')
