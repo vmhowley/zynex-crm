@@ -11,6 +11,9 @@ import { checkLimit } from '@/lib/subscription/enforce'
 
 const GRAPH_VERSION = process.env.META_GRAPH_API_VERSION || 'v21.0'
 const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`
+const JS_SDK_REDIRECT_URI =
+  process.env.META_EMBEDDED_SIGNUP_REDIRECT_URI ||
+  'https://www.facebook.com/connect/login_success.html'
 
 type MetaTokenResponse = {
   access_token?: string
@@ -59,6 +62,7 @@ async function exchangeEmbeddedSignupCode(code: string): Promise<string> {
     client_id: appId,
     client_secret: appSecret,
     code,
+    redirect_uri: JS_SDK_REDIRECT_URI,
   })
 
   const response = await fetch(`${GRAPH_BASE}/oauth/access_token?${params}`, {
