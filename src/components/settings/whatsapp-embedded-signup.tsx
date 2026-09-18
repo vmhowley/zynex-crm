@@ -215,6 +215,7 @@ export function WhatsAppEmbeddedSignup({
         signal: controller.signal,
         body: JSON.stringify({
           code,
+          redirect_uri: window.location.href,
           waba_id: info?.waba_id,
           phone_number_id: info?.phone_number_id,
           display_name: displayName || undefined,
