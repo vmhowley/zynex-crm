@@ -51,13 +51,14 @@ function getMetaAppCredentials() {
   return { appId, appSecret }
 }
 
-async function exchangeEmbeddedSignupCode(code: string): Promise<string> {
+async function exchangeEmbeddedSignupCode(code: string, redirectUri: string): Promise<string> {
   const { appId, appSecret } = getMetaAppCredentials()
 
   const params = new URLSearchParams({
     client_id: appId,
     client_secret: appSecret,
     code,
+    redirect_uri: redirectUri,
   })
 
   const response = await fetch(`${GRAPH_BASE}/oauth/access_token?${params}`, {
@@ -212,6 +213,7 @@ export async function POST(request: Request) {
     const pin = typeof body.pin === 'string' ? body.pin.trim() : ''
     const requestedName =
       typeof body.display_name === 'string' ? body.display_name.trim() : ''
+    const redirectUri = typeof body.redirect_uri === 'string' ? body.redirect_uri.trim() : ''
 
     if (!code) {
       return NextResponse.json(
@@ -227,7 +229,7 @@ export async function POST(request: Request) {
     }
 
     stage = 'exchange_code'
-    const accessToken = await exchangeEmbeddedSignupCode(code)
+    const accessToken = await exchangeEmbeddedSignupCode(code, redirectUri)
 
     stage = 'resolve_waba_and_phone'
     const selected = await resolveWabaAndPhone({
