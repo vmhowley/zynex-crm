@@ -32,6 +32,18 @@ interface Plan {
   api_access: boolean;
 }
 
+interface PaymentInstructions {
+  instructions?: {
+    bank?: string;
+    account?: string;
+    recipient?: string;
+    reference?: string;
+  };
+  payment_request?: { id?: string };
+}
+
+type PlanFeatureValue = Plan[keyof Plan];
+
 export default function PricingPage() {
   const { t } = useTranslations();
   
@@ -43,7 +55,7 @@ export default function PricingPage() {
   const [upgrading, setUpgrading] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
-  const [paymentInstructions, setPaymentInstructions] = useState<any>(null);
+  const [paymentInstructions, setPaymentInstructions] = useState<PaymentInstructions | null>(null);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [currentPaymentRequestId, setCurrentPaymentRequestId] = useState<string | null>(null);
@@ -162,7 +174,7 @@ export default function PricingPage() {
     return value.toLocaleString();
   }
 
-  const features: { key: keyof Plan; label: string; format: (v: any) => string }[] = [
+  const features: { key: keyof Plan; label: string; format: (v: PlanFeatureValue) => string }[] = [
     { 
       key: "max_contacts", 
       label: "Contactos", 

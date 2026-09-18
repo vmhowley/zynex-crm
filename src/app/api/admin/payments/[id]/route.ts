@@ -1,59 +1,51 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requirePlatformRole } from "@/lib/platform/auth";
+import { supabaseAdmin } from "@/lib/flows/admin-client";
 
-const SUPER_ADMIN_EMAILS = [
-  "admin@digitbillrd.com",
-  "admin@zynex.do",
-  "soporte@zynex.do"
-];
+interface PlanRow {
+  id: string;
+  plan_type: string;
+}
+
+interface SubscriptionJoin {
+  plans: PlanRow | PlanRow[] | null;
+}
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const supabase = await createClient();
+  const platformUser = await requirePlatformRole(["super_admin", "billing"]);
+  if (!platformUser) {
+    return NextResponse.json({ error: "Platform admin only" }, { status: 403 });
+  }
+
   const { id } = await params;
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || "");
-
-  if (!isSuperAdmin) {
-    return NextResponse.json({ error: "Super admin only" }, { status: 403 });
-  }
-
   const { action, notes } = await request.json();
 
   if (!action || !["approve", "reject"].includes(action)) {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }
 
-  const { data: paymentRequest } = await supabase
+  const admin = supabaseAdmin();
+  const { data: paymentRequest, error: paymentError } = await admin
     .from("payment_requests")
     .select("*, subscriptions!inner(plans(*))")
     .eq("id", id)
     .single();
 
-  if (!paymentRequest) {
+  if (paymentError || !paymentRequest) {
     return NextResponse.json({ error: "Payment request not found" }, { status: 404 });
   }
 
   const newStatus = action === "approve" ? "approved" : "rejected";
-
-  const { error: updateError } = await supabase
+  const { error: updateError } = await admin
     .from("payment_requests")
     .update({
       status: newStatus,
       processed_at: new Date().toISOString(),
-      processed_by: user.id,
-      notes: notes || null,
+      processed_by: platformUser.userId,
+      notes: typeof notes === "string" && notes.trim() ? notes.trim() : null,
     })
     .eq("id", id);
 
@@ -62,37 +54,48 @@ export async function PATCH(
   }
 
   if (action === "approve") {
-    const plan = (paymentRequest.subscriptions as any)?.plans;
+    const subscriptionJoin = paymentRequest.subscriptions as SubscriptionJoin | SubscriptionJoin[] | null;
+    const normalizedSubscription = Array.isArray(subscriptionJoin)
+      ? subscriptionJoin[0]
+      : subscriptionJoin;
+    const rawPlans = normalizedSubscription?.plans;
+    const plan = Array.isArray(rawPlans) ? rawPlans[0] : rawPlans;
 
-    const { error: subError } = await supabase
+    if (!plan?.id) {
+      return NextResponse.json(
+        { error: "Payment request is missing its target plan" },
+        { status: 409 },
+      );
+    }
+
+    const now = new Date();
+    const paidUntil = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const { error: subError } = await admin
       .from("subscriptions")
       .update({
         status: "active",
-        plan_id: plan?.id,
-        started_at: new Date().toISOString(),
-        current_period_start: new Date().toISOString(),
-        current_period_end: new Date(
-          Date.now() + 30 * 24 * 60 * 60 * 1000
-        ).toISOString(),
-        paid_until: new Date(
-          Date.now() + 30 * 24 * 60 * 60 * 1000
-        ).toISOString(),
+        plan_id: plan.id,
+        started_at: now.toISOString(),
+        current_period_start: now.toISOString(),
+        current_period_end: paidUntil.toISOString(),
+        paid_until: paidUntil.toISOString(),
+        updated_at: now.toISOString(),
       })
       .eq("account_id", paymentRequest.account_id);
 
     if (subError) {
       console.error("Error updating subscription:", subError);
+      return NextResponse.json({ error: subError.message }, { status: 500 });
     }
 
-    const { error: accountError } = await supabase
+    const { error: accountError } = await admin
       .from("accounts")
-      .update({
-        plan_type: plan?.plan_type,
-      })
+      .update({ plan_type: plan.plan_type })
       .eq("id", paymentRequest.account_id);
 
     if (accountError) {
       console.error("Error updating account:", accountError);
+      return NextResponse.json({ error: accountError.message }, { status: 500 });
     }
   }
 

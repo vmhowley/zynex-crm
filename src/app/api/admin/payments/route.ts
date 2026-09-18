@@ -1,31 +1,18 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-
-const SUPER_ADMIN_EMAILS = [
-  "admin@digitbillrd.com",
-  "admin@zynex.do",
-  "soporte@zynex.do"
-];
+import { requirePlatformRole } from "@/lib/platform/auth";
+import { supabaseAdmin } from "@/lib/flows/admin-client";
 
 export async function GET() {
-  const supabase = await createClient();
+  const platformUser = await requirePlatformRole([
+    "super_admin",
+    "billing",
+  ]);
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!platformUser) {
+    return NextResponse.json({ error: "Platform admin only" }, { status: 403 });
   }
 
-  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || "");
-
-  if (!isSuperAdmin) {
-    return NextResponse.json({ error: "Super admin only" }, { status: 403 });
-  }
-
-  const { data: paymentRequests } = await supabase
+  const { data: paymentRequests, error } = await supabaseAdmin()
     .from("payment_requests")
     .select(`
       *,
@@ -48,6 +35,14 @@ export async function GET() {
     `)
     .eq("status", "pending")
     .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching platform payment requests:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch payment requests" },
+      { status: 500 },
+    );
+  }
 
   return NextResponse.json({ payment_requests: paymentRequests || [] });
 }

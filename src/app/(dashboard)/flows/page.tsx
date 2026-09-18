@@ -339,7 +339,7 @@ export default function FlowsPage() {
           <DialogHeader>
             <DialogTitle>Select language</DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              Choose the language for "{selectedTemplate?.name}". Select "Both" to create English and Spanish versions.
+              Choose the language for &quot;{selectedTemplate?.name}&quot;. Select &quot;Both&quot; to create English and Spanish versions.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3 py-4">
