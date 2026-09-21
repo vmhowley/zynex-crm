@@ -16,6 +16,8 @@ import { ContactSidebar } from "@/components/inbox/contact-sidebar";
 import { toast } from "sonner";
 import { WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCan } from "@/hooks/use-can";
+import { ArchiveSalesWorkspaceDialog } from "@/components/pipelines/archive-sales-workspace-dialog";
 
 // Remembers the agent's show/hide choice for the desktop contact panel
 // across reloads and sessions (device-scoped, like the theme prefs).
@@ -25,6 +27,7 @@ export default function InboxPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useTranslations();
+  const canEditSettings = useCan("edit-settings");
   /**
    * `?c=<id>` deep-link support. Used when landing here from the
    * dashboard's recent-conversations list so the right thread opens
@@ -562,6 +565,24 @@ export default function InboxPage() {
           </p>
         </div>
       )}
+
+      <div className="flex shrink-0 items-center justify-between border-b border-border bg-card px-3 py-2">
+        <div>
+          <p className="text-sm font-medium text-foreground">Bandeja de mensajes</p>
+          <p className="text-xs text-muted-foreground">
+            Las conversaciones cerradas se conservan en el filtro Closed.
+          </p>
+        </div>
+        <ArchiveSalesWorkspaceDialog
+          canArchive={canEditSettings}
+          onArchived={() => {
+            setActiveConversation(null);
+            setActiveContact(null);
+            setMessages([]);
+            setResyncToken((value) => value + 1);
+          }}
+        />
+      </div>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel: Conversation list.
