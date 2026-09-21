@@ -9,6 +9,39 @@ import {
 
 export const CONFIRMATION_PHRASE = 'ARCHIVAR Y REINICIAR';
 
+async function archiveWithoutRpc(
+  supabase: Awaited<ReturnType<typeof requireRole>>['supabase'],
+  accountId: string
+) {
+  const [conversations, deals] = await Promise.all([
+    supabase
+      .from('conversations')
+      .update({ status: 'closed', updated_at: new Date().toISOString() })
+      .eq('account_id', accountId)
+      .in('status', ['open', 'pending'])
+      .select('id'),
+    supabase
+      .from('deals')
+      .update({ status: 'lost', updated_at: new Date().toISOString() })
+      .eq('account_id', accountId)
+      .eq('status', 'open')
+      .select('id'),
+  ]);
+
+  if (conversations.error || deals.error) {
+    console.error('[POST archive-sales-workspace] fallback error:', {
+      conversations: conversations.error,
+      deals: deals.error,
+    });
+    throw new Error('workspace archive fallback failed');
+  }
+
+  return {
+    conversations: conversations.data?.length ?? 0,
+    deals: deals.data?.length ?? 0,
+  };
+}
+
 export async function GET() {
   try {
     const ctx = await requireRole('admin');
@@ -69,6 +102,11 @@ export async function POST(request: Request) {
     const { data, error } = await ctx.supabase.rpc('archive_sales_workspace', {
       target_account_id: ctx.accountId,
     });
+
+    if (error && (error.code === 'PGRST202' || error.code === '42883')) {
+      const result = await archiveWithoutRpc(ctx.supabase, ctx.accountId);
+      return NextResponse.json(result);
+    }
 
     if (error) {
       console.error('[POST archive-sales-workspace] reset error:', error);
