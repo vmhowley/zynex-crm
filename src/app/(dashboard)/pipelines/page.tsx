@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { useCan } from "@/hooks/use-can";
 import { useAuth } from "@/hooks/use-auth";
 import { GatedButton } from "@/components/ui/gated-button";
+import { ArchiveSalesWorkspaceDialog } from "@/components/pipelines/archive-sales-workspace-dialog";
 
 // Pipeline creation is admin-class (settings-tier write under
 // the new RLS); deal creation is operational and only requires
@@ -368,6 +369,10 @@ export default function PipelinesPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <ArchiveSalesWorkspaceDialog
+            canArchive={canEditSettings}
+            onArchived={refreshDeals}
+          />
           <GatedButton
             variant="outline"
             canAct={canEditSettings}
