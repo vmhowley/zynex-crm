@@ -48,9 +48,10 @@ const CHANNEL_INDICATORS: Record<string, { bg: string; gradient?: string }> = {
   messenger: { bg: "bg-blue-500" },
 };
 
-type InboxFilter = ConversationStatus | "all" | "unread";
+type InboxFilter = ConversationStatus | "active" | "all" | "unread";
 
 const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = [
+  { label: "Active", value: "active" },
   { label: "All", value: "all" },
   { label: "Unread", value: "unread" },
   { label: "Open", value: "open" },
@@ -66,7 +67,7 @@ export function ConversationList({
   resyncToken = 0,
 }: ConversationListProps) {
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<InboxFilter>("all");
+  const [filter, setFilter] = useState<InboxFilter>("active");
   const [loading, setLoading] = useState(true);
   // Contact-based filters (issue #272). Tags use OR logic (a conversation
   // matches if its contact carries any selected tag), consistent with
@@ -163,7 +164,9 @@ export function ConversationList({
   const filtered = useMemo(() => {
     let result = conversations;
 
-    if (filter === "unread") {
+    if (filter === "active") {
+      result = result.filter((c) => c.status !== "closed");
+    } else if (filter === "unread") {
       result = result.filter((c) => c.unread_count > 0);
     } else if (filter !== "all") {
       result = result.filter((c) => c.status === filter);
