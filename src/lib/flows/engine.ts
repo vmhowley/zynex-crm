@@ -141,6 +141,22 @@ export function isTerminal(node_type: string): boolean {
 }
 
 /**
+ * A button or list is an explicit, structured question. When the customer
+ * writes a free-text response instead, replaying that same menu is noisy and
+ * hides the reason they wrote. Valid interactive replies keep their normal
+ * path; this only marks the off-script turn for human attention.
+ */
+export function shouldHandoffFreeTextAtInteractiveStep(
+  messageKind: ParsedInbound["kind"],
+  nodeType: string,
+): boolean {
+  return (
+    messageKind === "text" &&
+    (nodeType === "send_buttons" || nodeType === "send_list")
+  );
+}
+
+/**
  * Evaluate a `condition` node's predicate against the current run
  * state. Exported pure for unit testing — the engine wraps it with a
  * DB lookup for `tag` / `contact_field` subjects.
@@ -1051,6 +1067,33 @@ async function handleReplyForActiveRun(
   if (!currentNode) {
     await endRun(db, run.id, "failed", "current_node_not_found");
     return { consumed: true, flow_run_id: run.id, outcome: "no_match" };
+  }
+
+  // Do not replay an interactive menu when the customer deliberately writes
+  // free text instead of tapping an option. The inbound text is already kept
+  // in the conversation; make it visible to a person and end only this run.
+  if (
+    shouldHandoffFreeTextAtInteractiveStep(
+      message.kind,
+      currentNode.node_type,
+    )
+  ) {
+    if (run.conversation_id) {
+      await db
+        .from("conversations")
+        .update({ status: "pending", updated_at: new Date().toISOString() })
+        .eq("id", run.conversation_id);
+    }
+    await logEvent(db, run.id, "handoff", currentNode.node_key, {
+      reason: "free_text_while_awaiting_interactive_reply",
+    });
+    await endRun(
+      db,
+      run.id,
+      "handed_off",
+      "free_text_while_awaiting_interactive_reply",
+    );
+    return { consumed: true, flow_run_id: run.id, outcome: "handed_off" };
   }
 
   // Two ways a reply can advance:
