@@ -14,6 +14,7 @@ import {
   isTemplateWebhookField,
 } from '@/lib/whatsapp/template-webhook'
 import { resolveChannelConfigFromWebhook } from '@/lib/channels'
+import { sendPushToAccount } from '@/lib/push/send'
 
 // The `after()` callback in POST runs within this route's max duration.
 // Inbound processing can fan out to per-media Meta verification calls, so
@@ -731,6 +732,13 @@ async function processMessage(
     console.error('Error inserting message:', msgError)
     return
   }
+
+  void sendPushToAccount({
+    accountId,
+    title: `Nuevo mensaje de ${contactName || 'un contacto'}`,
+    body: contentText || 'Te envió un mensaje multimedia',
+    url: `/inbox?c=${conversation.id}`,
+  });
 
   // Update conversation
   const { error: convError } = await supabaseAdmin()
