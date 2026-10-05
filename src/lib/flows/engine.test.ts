@@ -6,6 +6,7 @@ import {
   isSuspending,
   isTerminal,
   evaluateConditionPredicate,
+  shouldHandoffFreeTextAtInteractiveStep,
 } from "./engine";
 
 describe("matchReplyId", () => {
@@ -195,6 +196,32 @@ describe("node classification helpers", () => {
       // Exactly one of the three should be true for every known node.
       expect(flags.filter(Boolean).length).toBe(1);
     }
+  });
+});
+
+describe("free-text interactive handoff", () => {
+  it("hands a typed reply to a human while a button response is expected", () => {
+    expect(
+      shouldHandoffFreeTextAtInteractiveStep("text", "send_buttons"),
+    ).toBe(true);
+  });
+
+  it("hands a typed reply to a human while a list response is expected", () => {
+    expect(
+      shouldHandoffFreeTextAtInteractiveStep("text", "send_list"),
+    ).toBe(true);
+  });
+
+  it("keeps valid interactive replies and collect-input text on their normal paths", () => {
+    expect(
+      shouldHandoffFreeTextAtInteractiveStep("interactive_reply", "send_buttons"),
+    ).toBe(false);
+    expect(
+      shouldHandoffFreeTextAtInteractiveStep("interactive_reply", "send_list"),
+    ).toBe(false);
+    expect(
+      shouldHandoffFreeTextAtInteractiveStep("text", "collect_input"),
+    ).toBe(false);
   });
 });
 
