@@ -23,3 +23,14 @@ self.addEventListener("notificationclick", (event) => {
     }),
   );
 });
+
+self.addEventListener("push", (event) => {
+  const payload = event.data?.json?.() || { title: "Zynex CRM", body: "Nuevo mensaje" };
+  event.waitUntil(self.registration.showNotification(payload.title, {
+    body: payload.body,
+    icon: "/icon",
+    badge: "/icon",
+    tag: payload.tag,
+    data: { url: payload.url || "/inbox" },
+  }));
+});
