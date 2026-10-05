@@ -51,6 +51,22 @@ export function NotificationPermissionButton() {
 export function RealtimeNotificationBridge() {
   useEffect(() => {
     const supabase = createClient();
+    const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (isSupported() && Notification.permission === "granted" && publicKey) {
+      void navigator.serviceWorker.ready.then(async (registration) => {
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: publicKey,
+        });
+        const json = subscription.toJSON();
+        if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) return;
+        await supabase.from("push_subscriptions").upsert({
+          endpoint: json.endpoint,
+          p256dh: json.keys.p256dh,
+          auth: json.keys.auth,
+        });
+      }).catch((error: unknown) => console.warn("[push] subscription failed", error));
+    }
     const channel = supabase
       .channel("pwa-notifications")
       .on(
