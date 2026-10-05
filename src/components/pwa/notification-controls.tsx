@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BellRing } from "lucide-react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { Notification as CrmNotification } from "@/types";
 
@@ -49,8 +50,6 @@ export function NotificationPermissionButton() {
 
 export function RealtimeNotificationBridge() {
   useEffect(() => {
-    if (!isSupported() || Notification.permission !== "granted") return;
-
     const supabase = createClient();
     const channel = supabase
       .channel("pwa-notifications")
@@ -58,9 +57,20 @@ export function RealtimeNotificationBridge() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications" },
         async (payload) => {
-          // Do not interrupt the person while they are looking at the CRM.
-          if (document.visibilityState === "visible") return;
           const notification = payload.new as CrmNotification;
+
+          // Realtime is useful even if browser permission has not been
+          // granted yet. Surface the new lead immediately in the open CRM.
+          if (document.visibilityState === "visible") {
+            toast(notification.title, {
+              description: notification.body ?? "Tienes una nueva notificación.",
+            });
+            return;
+          }
+
+          // In the background, promote the same event to an OS notification
+          // when the user explicitly enabled it.
+          if (!isSupported() || Notification.permission !== "granted") return;
           const registration = await navigator.serviceWorker.ready;
           await registration.showNotification(notification.title, {
             body: notification.body ?? "Tienes una nueva notificación.",
