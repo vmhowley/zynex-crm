@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { ThemedToaster } from "@/components/themed-toaster";
+import { PwaRegistrar } from "@/components/pwa/pwa-registrar";
 import { TranslationProvider } from "@/hooks/use-translations";
 import {
   DEFAULT_MODE,
@@ -34,6 +35,7 @@ export const metadata: Metadata = {
   icons: {
     icon: [{ url: "/icon" }],
   },
+  manifest: "/manifest.webmanifest",
   formatDetection: {
     email: false,
     address: false,
@@ -91,6 +93,7 @@ export default function RootLayout({
       <body className="min-h-full bg-background text-foreground font-sans">
         <TranslationProvider>
           <ThemeProvider>
+            <PwaRegistrar />
             {children}
             <ThemedToaster />
           </ThemeProvider>

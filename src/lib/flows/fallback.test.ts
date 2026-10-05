@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   decideFallback,
+  decideReplyFallback,
   resolveFallbackPolicy,
 } from "./fallback";
 import { DEFAULT_FALLBACK_POLICY, type FlowFallbackPolicy } from "./types";
@@ -120,5 +121,27 @@ describe("decideFallback", () => {
     expect(decideFallback({ policy, reprompt_count: 1 })).toEqual({
       type: "handoff",
     });
+  });
+});
+
+describe("decideReplyFallback", () => {
+  it("hands off free text on an interactive prompt instead of resending it", () => {
+    expect(
+      decideReplyFallback({
+        policy: POLICY_REPROMPT_2_HANDOFF,
+        reprompt_count: 1,
+        is_free_text_on_interactive_prompt: true,
+      }),
+    ).toEqual({ type: "handoff" });
+  });
+
+  it("keeps the configured policy for non-text interactive fallback cases", () => {
+    expect(
+      decideReplyFallback({
+        policy: POLICY_REPROMPT_2_HANDOFF,
+        reprompt_count: 1,
+        is_free_text_on_interactive_prompt: false,
+      }),
+    ).toEqual({ type: "reprompt" });
   });
 });

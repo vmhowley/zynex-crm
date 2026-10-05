@@ -89,3 +89,19 @@ export function decideFallback(args: {
     ? { type: "end" }
     : { type: "handoff" };
 }
+
+/**
+ * Decide a fallback while preserving a human-written reply to an
+ * interactive prompt. A free-text message at a button or list means the
+ * customer is trying to have a conversation, not that they need the same
+ * menu sent again. Hand it off immediately; malformed interactive replies
+ * and collect-input validation errors still use the flow's configured policy.
+ */
+export function decideReplyFallback(args: {
+  policy: FlowFallbackPolicy;
+  reprompt_count: number;
+  is_free_text_on_interactive_prompt: boolean;
+}): FallbackAction {
+  if (args.is_free_text_on_interactive_prompt) return { type: "handoff" };
+  return decideFallback(args);
+}

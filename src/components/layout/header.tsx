@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ModeToggle } from "@/components/layout/mode-toggle";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { NotificationPermissionButton } from "@/components/pwa/notification-controls";
 
 interface HeaderProps {
   /** Wired to the shell's drawer state. Used only on mobile — the
@@ -78,6 +79,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
       <div className="flex items-center gap-1 sm:gap-2">
         <LanguageSwitcher />
         <ModeToggle />
+        <NotificationPermissionButton />
 
         <DropdownMenu>
         <DropdownMenuTrigger
