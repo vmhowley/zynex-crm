@@ -733,7 +733,7 @@ async function processMessage(
     return
   }
 
-  void sendPushToAccount({
+  await sendPushToAccount({
     accountId,
     title: `Nuevo mensaje de ${contactName || 'un contacto'}`,
     body: contentText || 'Te envió un mensaje multimedia',
