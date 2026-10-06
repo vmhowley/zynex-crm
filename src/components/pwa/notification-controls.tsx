@@ -14,6 +14,36 @@ function isSupported() {
   );
 }
 
+function vapidKeyToUint8Array(value: string) {
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+  const decoded = window.atob(padded);
+  return Uint8Array.from(decoded, (character) => character.charCodeAt(0));
+}
+
+async function registerPushSubscription(
+  supabase: ReturnType<typeof createClient>,
+) {
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  if (!isSupported() || Notification.permission !== "granted" || !publicKey) return;
+
+  const registration = await navigator.serviceWorker.ready;
+  const existing = await registration.pushManager.getSubscription();
+  const subscription = existing ?? await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: vapidKeyToUint8Array(publicKey),
+  });
+  const json = subscription.toJSON();
+  if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) return;
+
+  const { error } = await supabase.from("push_subscriptions").upsert({
+    endpoint: json.endpoint,
+    p256dh: json.keys.p256dh,
+    auth: json.keys.auth,
+  });
+  if (error) throw error;
+}
+
 /**
  * Explicit permission control plus in-app realtime → device notification
  * bridge. Permission is never requested automatically; it is a user action.
@@ -33,6 +63,13 @@ export function NotificationPermissionButton() {
     if (!isSupported()) return;
     const next = await Notification.requestPermission();
     setPermission(next);
+    if (next === "granted") {
+      try {
+        await registerPushSubscription(createClient());
+      } catch (error) {
+        console.warn("[push] subscription failed", error);
+      }
+    }
   }
 
   return (
@@ -51,22 +88,9 @@ export function NotificationPermissionButton() {
 export function RealtimeNotificationBridge() {
   useEffect(() => {
     const supabase = createClient();
-    const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-    if (isSupported() && Notification.permission === "granted" && publicKey) {
-      void navigator.serviceWorker.ready.then(async (registration) => {
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: publicKey,
-        });
-        const json = subscription.toJSON();
-        if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) return;
-        await supabase.from("push_subscriptions").upsert({
-          endpoint: json.endpoint,
-          p256dh: json.keys.p256dh,
-          auth: json.keys.auth,
-        });
-      }).catch((error: unknown) => console.warn("[push] subscription failed", error));
-    }
+    void registerPushSubscription(supabase).catch((error: unknown) =>
+      console.warn("[push] subscription failed", error),
+    );
     const channel = supabase
       .channel("pwa-notifications")
       .on(
